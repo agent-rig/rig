@@ -72,7 +72,7 @@
         "project": { "type": "string", "description": "Linear project name (e.g. \"Acme\")." },
         "ticketPrefix": { "type": "string", "description": "Ticket identifier prefix, e.g. \"INC-\". Used to detect ticket IDs in branch names and PR titles." },
         "labelMapFile": { "type": "string", "default": ".claude/label-mapping.md", "description": "Path to the PR/tracker label source-of-truth doc." },
-        "githubIntegration": { "type": "boolean", "default": false, "description": "If true, the tracker auto-transitions issue state from GitHub branch/PR events, so skills must NOT set states manually." }
+        "githubIntegration": { "type": "boolean", "default": false, "description": "If true, GitHub drives PR/merge transitions (In Progress on PR-open, In Review, Done on merge); skills set only the start-of-work In Progress, which GitHub can't observe before a PR exists." }
       }
     },
     "review": {
