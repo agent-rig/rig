@@ -83,3 +83,7 @@ reference (the origin project's own values).
   colocated with the code, mirroring nested `AGENTS.md`). `rig-review` resolves
   the scoped files a diff touches and asserts them as P1s, so a subsystem's
   hard-won invariants stop getting re-discovered in PR review.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
