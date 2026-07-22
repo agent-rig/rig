@@ -57,7 +57,7 @@ Set `provider: "none"` to strip all ticket steps from `ticket`/`sprint`/review f
 | Key | Default | Meaning |
 |---|---|---|
 | `patternsFile` | `.claude/REVIEWER.md` | The P0–P3 review catalog. |
-| `bot` | `none` | `codex`\|`claude`\|`none`. Which PR bot `rig-review fix` polls/re-triggers. |
+| `bot` | `none` | `codex`\|`claude`\|`bugbot`\|`none`. Which PR bot `rig-review fix` polls/re-triggers. |
 | `botRetrigger` | — | Comment that re-triggers the bot, e.g. `@codex review`. |
 | `maxRounds` | `5` | Max fix↔re-review rounds before handing to a human. |
 
