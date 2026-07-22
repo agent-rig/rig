@@ -165,6 +165,13 @@ misses half the surface and stalls polling.
 - `bot: bugbot` → regex `cursor` (Cursor Bugbot posts as `cursor[bot]`; re-trigger
   comment is `bugbot run`).
 
+**Clean signal differs by bot.** codex/claude announce a clean run with an
+`APPROVED` review or a `+1` reaction. **Bugbot does not** — on a clean PR it posts
+no review and no reaction; it completes a GitHub **check-run** (`Cursor Bugbot`,
+app `cursor`) with `conclusion: success`. So for `bot: bugbot` the poll must read
+that check-run — keying on review/reaction alone makes every clean PR time out and
+the merge gates never go green.
+
 Loop, `round` starting at 1:
 
 1. **Wait for the bot.** Poll ~5 min (15 × 20s). Watch review state AND inline
@@ -179,8 +186,15 @@ Loop, `round` starting at 1:
      [.[] | select((.user.login | test(\"$BOT\"; \"i\")) and .content == \"+1\" and .created_at > \"$PUSH_TIME\")] | length")
    INLINE=$(gh api "repos/$REPO/pulls/$PR/comments" -q "
      [.[] | select((.user.login | test(\"$BOT\"; \"i\")) and .created_at > \"$PUSH_TIME\")] | length")
+   # bugbot only: its verdict is a check-run, not a review/reaction.
+   SHA=$(gh pr view $PR --repo "$REPO" --json headRefOid -q .headRefOid)
+   CHECK=$(gh api "repos/$REPO/commits/$SHA/check-runs" -q "
+     [.check_runs[] | select(.name | test(\"bugbot\"; \"i\"))] | last | (.status + \":\" + (.conclusion // \"\"))")
    ```
-2. **Classify:**
+2. **Classify** (codex/claude use the review/reaction signals; bugbot uses `CHECK`):
+   - **`bot: bugbot`** — `CHECK == "completed:success"` → **clean**, exit;
+     `completed:` with any other conclusion (`neutral`/`action_required`/`failure`)
+     AND `INLINE > 0` → **actionable**, go to 3; not yet `completed:` → keep polling.
    - `REACTION > 0` or `REVIEW == "APPROVED"` → **clean**, exit.
    - `REVIEW == "COMMENTED"` AND `INLINE > 0` → **actionable**, go to 3.
    - `REVIEW == "COMMENTED"` AND `INLINE == 0` → **race window**: review state can
@@ -200,7 +214,8 @@ Loop, `round` starting at 1:
      ```
      Bucket each by severity yourself (blocking = correctness/security/data-loss;
      advisory = style/nit). *(If the project ships a P1-gate classifier script,
-     run it and use its output as authoritative.)*
+     run it with `REVIEW_BOT_LOGIN` set to the bot's login regex — see step 4 —
+     and use its output as authoritative.)*
    - Spawn **coder** (via `agents.coder`) with the review body + inline comments
      (each with `id`) and the instruction to apply fixes in `{worktree-path}`.
      Tell coder: "Address each actionable suggestion. If one is wrong, **push
@@ -221,8 +236,12 @@ Loop, `round` starting at 1:
    - Increment `round`; update `PUSH_TIME` to the new commit; loop to 1.
 4. **After N rounds** (or `clean`/`timeout`): the merge-queue gate is the
    authority — converge to it. If the project ships a P1-gate script, run it
-   (exit 0 → `clean`; non-zero → `actionable` with blocking titles + URLs).
-   Else use the final snapshot + tracked unresolved blockers.
+   **with `REVIEW_BOT_LOGIN` set to the bot's login regex** (the same one used
+   above — e.g. `REVIEW_BOT_LOGIN=cursor` for bugbot) so it matches the right
+   author; left unset it defaults to a placeholder that matches nothing, so the
+   gate falsely passes and can wave through an unresolved blocker. (exit 0 →
+   `clean`; non-zero → `actionable` with blocking titles + URLs.) Else use the
+   final snapshot + tracked unresolved blockers.
 
 **Outcomes (bot)** — stacked/epic flows read this to decide auto-merge:
 - `clean — PR <URL> reviewed by <bot>, no unresolved blockers`
