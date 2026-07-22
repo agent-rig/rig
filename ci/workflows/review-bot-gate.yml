@@ -1,0 +1,72 @@
+# review-bot-gate — required-check gate on unresolved P1 (blocking) review-bot findings.
+#
+# WHAT: Stays RED while any unresolved, still-applicable P1/blocking finding from
+# your AI review bot exists on the PR (posted as an inline review thread), and
+# goes GREEN when none remain. This converts "+1 and merge past the blocking
+# finding" into "resolve or dismiss the P1 first." P1 only — the P2/P3 nit-flow
+# and the clean fast path are untouched.
+#
+# DEPENDS ON a review bot that posts inline review threads with a severity marker
+# (a "P1" shields.io badge, or the word "blocking" in the first comment). The
+# porting script (scripts/check-review-p1.ts) matches the bot by GitHub login.
+#
+# CONSUMER SETUP:
+#   - Edit scripts/check-review-p1.ts: set REVIEW_BOT_LOGIN to your bot's GitHub
+#     login (or provide it via the REVIEW_BOT_LOGIN repo variable, wired below).
+#   - No secrets required — uses the built-in GITHUB_TOKEN (read-only).
+#   - To ENFORCE: add `review-bot-gate` as a required status check in branch
+#     protection / the merge-queue ruleset (settings, not code).
+#   - rig config mirrored: review.bot (which bot), review.maxRounds
+#     (consumed by the paired /rig-review fix loop, not here).
+#
+# See ci/README.md#review-bot-bundle for full setup.
+name: review-bot-gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  # A bot review can flip pull_request_review to COMMENTED before its inline P1
+  # threads are visible through the API (eventual consistency).
+  # pull_request_review_comment fires when the inline comment itself lands, so
+  # the gate re-runs once the P1 is actually visible instead of passing on an
+  # empty-threads snapshot and letting the P1 merge.
+  pull_request_review_comment:
+    types: [created, edited]
+  merge_group:
+
+# NOTE: there is deliberately NO `pull_request_review_thread` trigger — it is a
+# webhook event but NOT a valid GitHub Actions workflow trigger; listing it makes
+# the whole file invalid (every run startup-fails and the required check never
+# reports, wedging every PR). Resolving a thread WITHOUT a push therefore relies
+# on a manual rerun or a later review edit/dismiss to clear a stale failed check.
+
+concurrency:
+  group: review-bot-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review-bot-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      # Swap for setup-node if your repo isn't on bun (the script runs under both).
+      - uses: oven-sh/setup-bun@v2
+      - name: Evaluate unresolved P1 review findings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Optional: set a repo variable REVIEW_BOT_LOGIN instead of editing the
+          # script. Falls back to the placeholder baked into the script.
+          REVIEW_BOT_LOGIN: ${{ vars.REVIEW_BOT_LOGIN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "merge_group: review-P1 gate is evaluated at PR time — passing."
+            exit 0
+          fi
+          PR="${{ github.event.pull_request.number }}"
+          bun scripts/check-review-p1.ts "$PR" "${{ github.repository }}"

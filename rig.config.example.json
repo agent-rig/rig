@@ -1,0 +1,49 @@
+{
+  "$schema": "./rig.schema.json",
+  "project": {
+    "name": "Acme",
+    "repo": "acme-inc/acme"
+  },
+  "runtime": {
+    "packageManager": "bun"
+  },
+  "test": {
+    "command": "bun run test",
+    "integrationCommand": "bun run test:integration",
+    "e2eCommand": "bun run test:e2e",
+    "requiresDatabase": true
+  },
+  "sourceScope": ["packages/api/src"],
+  "vcs": {
+    "defaultBranch": "main",
+    "baseRef": "origin/main",
+    "branchConvention": "{user}/{ticket}-{slug}",
+    "protectedBranchMergeQueue": true
+  },
+  "tracker": {
+    "provider": "linear",
+    "team": "Engineering",
+    "project": "Acme",
+    "ticketPrefix": "ACME-",
+    "labelMapFile": ".claude/label-mapping.md",
+    "githubIntegration": true
+  },
+  "review": {
+    "patternsFile": ".claude/REVIEWER.md",
+    "bot": "codex",
+    "botRetrigger": "@codex review",
+    "maxRounds": 5
+  },
+  "agents": {
+    "debugger": "rig-debugger",
+    "reviewer": "rig-reviewer",
+    "architect": "rig-architect",
+    "qa": "rig-qa",
+    "coder": "rig-coder"
+  },
+  "ci": {
+    "imageRegistry": "ghcr.io",
+    "slackWebhookSecret": "SLACK_CI_WEBHOOK_URL",
+    "trustBoundaryPaths": ["packages/api/src/auth", "packages/api/src/billing", "infra/"]
+  }
+}

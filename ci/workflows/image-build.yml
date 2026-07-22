@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Image Build & Push  (rig CI template)
+#
+# WHAT IT DOES
+#   Builds a Docker image and pushes it to GHCR on push to your default branch,
+#   tagging both :latest and :<sha>. Uses buildx + build-push-action with a
+#   GitHub Actions layer cache for fast incremental builds.
+#
+# PLACEHOLDERS TO FILL
+#   <OWNER>            GHCR namespace (your GitHub org/user, lowercased).
+#   <IMAGE>            image name, e.g. my-service.
+#   <CONTEXT_PATH>     Docker build context dir, e.g. packages/my-service or "."
+#   <TRIGGER_PATHS>    paths that should trigger a rebuild (see `on.push.paths`).
+#   <DEFAULT_BRANCH>   e.g. main.
+#   Registry host is ghcr.io (ci.imageRegistry). Swap the registry + login if
+#   you use another (Docker Hub, ECR, GAR) — see the login step comment.
+#
+# GITHUB SECRETS / VARS NEEDED
+#   None extra for GHCR: the implicit GITHUB_TOKEN authenticates the push
+#   (requires `packages: write`, granted below). For a non-GHCR registry,
+#   add REGISTRY_USERNAME / REGISTRY_PASSWORD (or equivalent) secrets.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Image Build & Push
+
+on:
+  push:
+    branches: [<DEFAULT_BRANCH>] # <-- e.g. main
+    paths:
+      - "<TRIGGER_PATHS>" # <-- e.g. packages/my-service/**
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # GHCR login via the implicit token. For another registry, change
+      # `registry:` and supply username/password from secrets, e.g.:
+      #   registry: docker.io
+      #   username: ${{ secrets.REGISTRY_USERNAME }}
+      #   password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: <CONTEXT_PATH> # <-- e.g. packages/my-service
+          push: true
+          tags: |
+            ghcr.io/<OWNER>/<IMAGE>:latest
+            ghcr.io/<OWNER>/<IMAGE>:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,104 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Slack Notify  (rig CI template)
+#
+# WHAT IT DOES
+#   A reusable (`workflow_call`) job that posts a CI status notification to
+#   Slack via an incoming-webhook URL. Call it from a status()-gated tail job
+#   on any pipeline so a broken deploy / failed suite reaches Slack instead of
+#   going unnoticed.
+#
+#   Best-effort: when the webhook secret is unset (forks, unconfigured envs) it
+#   logs a ::warning:: and exits 0 — a missing notification never fails CI.
+#   The github.* context in a reusable workflow reflects the CALLER's event, so
+#   run_id / sha / ref / actor here are the calling pipeline's.
+#
+# HOW TO CALL (from another workflow)
+#   notify-failure:
+#     if: failure() && github.event_name == 'push'
+#     needs: [<your jobs>]
+#     uses: ./.github/workflows/slack-notify.yml
+#     with:
+#       workflow_name: Tests (main)
+#       status: failure
+#     secrets: inherit
+#
+# INPUTS
+#   workflow_name  (required)  Human label for the pipeline.
+#   status         (optional)  "success" | "failure" | "approval". Default failure.
+#   detail         (optional)  Extra context appended as a quoted line.
+#
+# GITHUB SECRETS / VARS NEEDED
+#   SLACK_CI_WEBHOOK_URL  (optional)  Slack incoming-webhook URL. Overridable —
+#     rename to match `ci.slackWebhookSecret` in .rig/config.json if you
+#     use a different secret name (update the `secrets:` block + env below).
+#     `secrets: inherit` from the caller passes it through.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Slack notify
+
+on:
+  workflow_call:
+    inputs:
+      workflow_name:
+        description: Human label for the pipeline (e.g. "Deploy staging").
+        required: true
+        type: string
+      status:
+        description: Outcome to report — "success", "failure", or "approval" (a pending manual approval gate). Drives the emoji/verb.
+        required: false
+        default: failure
+        type: string
+      detail:
+        description: Optional extra context appended to the message.
+        required: false
+        default: ""
+        type: string
+    secrets:
+      SLACK_CI_WEBHOOK_URL:
+        required: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Slack
+        env:
+          WEBHOOK: ${{ secrets.SLACK_CI_WEBHOOK_URL }}
+          WORKFLOW: ${{ inputs.workflow_name }}
+          STATUS: ${{ inputs.status }}
+          DETAIL: ${{ inputs.detail }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WEBHOOK:-}" ]; then
+            echo "::warning::SLACK_CI_WEBHOOK_URL is unset — skipping Slack notification for '$WORKFLOW' ($STATUS)."
+            exit 0
+          fi
+          short_sha="${SHA:0:7}"
+          case "$STATUS" in
+            success)
+              text=":white_check_mark: *${WORKFLOW}* succeeded on \`${REF}\` — <${RUN_URL}|run> · \`${short_sha}\` · @${ACTOR}"
+              ;;
+            approval)
+              # A manual approval gate is pending — fires BEFORE the gated job
+              # pauses, so a reviewer sees it in Slack and can go approve the run.
+              text=":large_yellow_square: *${WORKFLOW}* requires approval — <${RUN_URL}|review & approve> · \`${short_sha}\` · requested by @${ACTOR}"
+              ;;
+            *)
+              text=":rotating_light: *${WORKFLOW}* failed on \`${REF}\` — <${RUN_URL}|run> · \`${short_sha}\` · @${ACTOR}"
+              ;;
+          esac
+          # Optional caller-supplied context, appended as a quote line.
+          [ -z "${DETAIL:-}" ] || text="${text}"$'\n'"> ${DETAIL}"
+          # jq -n builds the JSON so the text is escaped safely (branch names /
+          # actor logins can contain characters that would break a hand-rolled
+          # payload). jq is preinstalled on ubuntu-latest runners.
+          payload=$(jq -n --arg t "$text" '{text: $t}')
+          # --fail so an HTTP 4xx/5xx from Slack is visible, but never fail the
+          # job on it — a flaky notification must not mask the pipeline result.
+          curl -sS --fail -X POST -H 'Content-Type: application/json' \
+            --data "$payload" "$WEBHOOK" \
+            || echo "::warning::Slack notification POST failed for '$WORKFLOW' ($STATUS) (non-fatal)."

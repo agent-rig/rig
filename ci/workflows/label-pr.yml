@@ -1,0 +1,68 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Label PR  (rig CI template)
+#
+# WHAT IT DOES
+#   Deterministic PR labeling — no agent, no drift. Two label dimensions:
+#     • Area — from changed paths, via actions/labeler@v5 driven by a rules
+#              file (see companion ci/labeler.example.yml; install it at
+#              .github/labeler.yml).
+#     • Type — from the conventional-commit prefix in the PR title:
+#              feat -> Feature ; fix -> bug ;
+#              chore/refactor/perf/test/docs/ci/build/style -> Chore.
+#
+#   sync-labels:false — additive only; never strips a human's manual label.
+#
+# PLACEHOLDERS TO FILL
+#   The label NAMES in the case-statement below (Feature / bug / Chore) must
+#   exist in your repo's label set — rename them to match your labels.
+#   Area rules live in the companion labeler.yml, not here.
+#
+# GITHUB SECRETS / VARS NEEDED
+#   None. Uses the implicit github.token (needs pull-requests: write, granted
+#   below).
+# ─────────────────────────────────────────────────────────────────────────────
+name: Label PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: label-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Area labels from changed paths
+        uses: actions/labeler@v5
+        with:
+          sync-labels: false
+          # configuration-path defaults to .github/labeler.yml — install the
+          # companion ci/labeler.example.yml there and edit its area rules.
+
+      - name: Type label from conventional-commit title
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # gh infers the repo from a local git remote when --repo is omitted;
+          # this job has no checkout, so pass the repo explicitly (else
+          # `gh pr edit` dies with "fatal: not a git repository").
+          GH_REPO: ${{ github.repository }}
+          TITLE: ${{ github.event.pull_request.title }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Map conventional-commit prefixes -> your repo's label names.
+          # Rename Feature / bug / Chore to match labels that exist in your repo.
+          case "$TITLE" in
+            feat:*|feat\(*)  L=Feature ;;
+            fix:*|fix\(*)    L=bug ;;
+            chore:*|chore\(*|refactor:*|refactor\(*|perf:*|perf\(*|test:*|test\(*|docs:*|docs\(*|ci:*|ci\(*|build:*|build\(*|style:*|style\(*)  L=Chore ;;
+            *) echo "no conventional-commit type prefix in title — skipping type label"; exit 0 ;;
+          esac
+          gh pr edit "$PR" --repo "$GH_REPO" --add-label "$L"

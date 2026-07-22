@@ -1,0 +1,76 @@
+# pr-review-labels — an ADVISORY labeler, not a gate.
+#
+# WHAT: Classifies the PR diff and applies descriptive labels ("Review:
+# Architecture", "Review: Sensitive Path", "Review: Large") to tell reviewers
+# what scrutiny a PR needs. It NEVER blocks a merge and reads no approval state.
+# Enforcement of "a human reviewed" stays native (branch-protection review count
+# + CODEOWNERS routing); this only guides.
+#   - "Review: Architecture"  — new package / module dir / dependency / migration,
+#                               or a core-domain path touch.
+#   - "Review: Sensitive Path" — a crown-jewel path (auth/secrets/tenancy/infra).
+#   - "Review: Large"          — large diff (excl. lockfiles/snapshots/baselines).
+#
+# DEPENDS ON: nothing external — pure diff heuristics. (It's the advisory sibling
+# of the review-bot bundle; useful with or without a review bot.)
+#
+# CONSUMER SETUP:
+#   - Edit scripts/pr-review-labels.ts: replace the PLACEHOLDER path arrays
+#     (SENSITIVE_PATHS, DOMAIN_PATHS, MIGRATION_DIRS, and the new-package /
+#     new-module globs) to match your repo layout.
+#   - No secrets required — uses the built-in GITHUB_TOKEN.
+#   - Deliberately NOT a required status check and NOT triggered on merge_group /
+#     pull_request_review — a labeler has no verdict for the merge queue, so
+#     there's nothing to wedge.
+#   - rig config mirrored: none required (heuristics are self-contained).
+#
+# See ci/README.md#review-bot-bundle for full setup.
+name: pr-review-labels
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: pr-review-labels-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # add/remove labels
+      issues: write # create the labels if they don't exist
+    steps:
+      - uses: actions/checkout@v4
+      # Swap for setup-node if your repo isn't on bun.
+      - uses: oven-sh/setup-bun@v2
+      - name: Classify diff
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/pr-review-labels.ts "${{ github.event.pull_request.number }}" "${{ github.repository }}"
+
+      - name: Sync advisory labels
+        if: always()
+        continue-on-error: true # advisory only — a label hiccup must never fail anything
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PR="${{ github.event.pull_request.number }}"
+          ensure() { gh label create "$1" --repo "$GH_REPO" --color "$2" --description "$3" 2>/dev/null || true; }
+          ensure "Review: Architecture"   "5319E7" "Advisory: architectural decision — extract-vs-duplicate + soundness"
+          ensure "Review: Sensitive Path" "B60205" "Advisory: touches a crown-jewel path — security/tenancy scrutiny"
+          ensure "Review: Large"          "FBCA04" "Advisory: large diff — budget time / consider splitting"
+          sync() { # sync <label> <true|false>
+            if [ "$2" = "true" ]; then
+              gh pr edit "$PR" --repo "$GH_REPO" --add-label "$1"
+            else
+              gh pr edit "$PR" --repo "$GH_REPO" --remove-label "$1" 2>/dev/null || true
+            fi
+          }
+          sync "Review: Architecture"   "${{ steps.classify.outputs.label_architecture }}"
+          sync "Review: Sensitive Path" "${{ steps.classify.outputs.label_sensitive }}"
+          sync "Review: Large"          "${{ steps.classify.outputs.label_large }}"

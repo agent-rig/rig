@@ -1,0 +1,8 @@
+# Agent Kit is a source-of-truth template repo — it ships text, not builds.
+node_modules/
+.DS_Store
+*.log
+
+# Consumers create these in THEIR projects, not here:
+.agentkit/
+.claude/settings.local.json

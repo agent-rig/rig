@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# E2E Tests  (rig CI template)
+#
+# WHAT IT DOES
+#   Runs Playwright end-to-end tests inside docker-compose on push to your
+#   default branch. Builds/caches the Playwright image layers via the GitHub
+#   Actions cache first, then brings the compose stack up and exits with the
+#   test container's code.
+#
+# PLACEHOLDERS TO FILL
+#   <DEFAULT_BRANCH>   e.g. main.
+#   <COMPOSE_FILE>     docker-compose file, e.g. docker-compose.e2e.yml.
+#   <CONTEXT_DIR>      build context for the Playwright image, e.g. e2e/ or tests/.
+#   <IMAGE_TAG>        local tag for the built image, e.g. my-e2e-playwright:latest.
+#   <PLAYWRIGHT_SERVICE>  the compose service that runs the tests (used for
+#                         --exit-code-from), e.g. playwright.
+#
+# GITHUB SECRETS / VARS NEEDED
+#   None by default. Add any your compose stack needs (e.g. test API keys) as
+#   secrets and pass them through the compose env.
+# ─────────────────────────────────────────────────────────────────────────────
+name: E2E Tests
+
+on:
+  push:
+    branches: [<DEFAULT_BRANCH>] # <-- e.g. main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Cache playwright image layers
+        uses: docker/build-push-action@v7
+        with:
+          context: <CONTEXT_DIR> # <-- e.g. e2e/ or tests/
+          load: true
+          tags: <IMAGE_TAG> # <-- e.g. my-e2e-playwright:latest
+          cache-from: type=gha,scope=playwright
+          cache-to: type=gha,scope=playwright,mode=max
+
+      - name: Run E2E tests
+        run: docker compose -f <COMPOSE_FILE> up --abort-on-container-exit --exit-code-from <PLAYWRIGHT_SERVICE>

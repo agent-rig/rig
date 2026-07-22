@@ -1,0 +1,249 @@
+# auto-review-fix — run your /rig-review fix loop headless in CI when a review lands.
+#
+# WHAT: When your review bot posts a review (or a human types the trigger phrase,
+# or you dispatch manually), this checks out the PR branch, runs the Claude Code
+# CLI headless to apply the review feedback via the consumer's /rig-review fix skill,
+# and pushes the fix commit using a least-privilege GitHub App installation token.
+# Fixing is not merging — the native review requirement + merge gates still hold,
+# so running the fixer on risky PRs is safe and human review remains the backstop.
+# It complements review-bot-gate (blocks on unresolved P1s) and pr-review-labels
+# (flags what a human should look at); this ACTS on everything else.
+#
+# DEPENDS ON: a review bot posting reviews, and the consumer's own `/rig-review fix`
+# skill (from rig's skills/). One round per invocation — the bot's
+# re-review after the push re-fires this workflow for the next round.
+#
+# CONSUMER SETUP (one-time):
+#   Secrets:
+#     - CLAUDE_CI_ANTHROPIC_API_KEY  — a DEDICATED Anthropic API key for CI
+#         (separate from any app key, so agent spend is independently budgeted
+#         and revocable).
+#     - AUTO_FIX_APP_PRIVATE_KEY     — the fix App's private key (PEM or base64 PEM).
+#   Variables:
+#     - AUTO_FIX_APP_ID              — the fix App's numeric ID.
+#     - AUTO_FIX_INSTALLATION_ID     — its installation ID on THIS repo.
+#     - REVIEW_BOT_LOGIN  (optional) — the review bot's GitHub login; the auto
+#         (review-triggered) path only runs when this bot posted the review.
+#         Omit to run on any submitted review.
+#   GitHub App (why an App, not GITHUB_TOKEN): GitHub suppresses workflow runs on
+#     commits pushed by the default GITHUB_TOKEN (anti-recursion), so those
+#     commits' checks wait in `action_required` for a human — defeating a
+#     hands-off loop. A push authenticated by an App installation token triggers
+#     downstream checks normally. Create an App with repository perms
+#     Contents: write, Pull requests: write, Issues: write; install it on THIS
+#     repo only; then set the id/installation-id vars and private-key secret above.
+#   Enable gate: this workflow only acts when the marker file
+#     `.github/auto-review-fix.enabled` exists on the default branch. Commit an
+#     empty file there to turn the loop ON; delete it to turn it OFF. (No bespoke
+#     enable script — just `git cat-file -e origin/main:...`.)
+#   rig config mirrored: review.bot, review.maxRounds (passed as --rounds
+#     to the /rig-review fix invocation below).
+# Until the secrets/vars are set, the fix job fails fast with a clear message and
+# no PR is affected.
+#
+# NOTE: assumes the default branch is `main` (see the enable-gate step) and a bun
+# repo (setup-bun / bun install). Adjust both for your stack.
+#
+# See ci/README.md#review-bot-bundle for full setup.
+name: auto-review-fix
+
+on:
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to run the review-fix loop on
+        required: true
+
+# Serialize per PR; do NOT cancel in progress — a half-applied fix push is worse
+# than waiting. Different PRs still run concurrently.
+concurrency:
+  group: auto-review-fix-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr }}
+  cancel-in-progress: false
+
+env:
+  BUN_INSTALL_CACHE_DIR: /tmp/bun-cache
+  # The comment phrase that triggers a manual (uncapped) run from a PR comment.
+  TRIGGER_PHRASE: "/rig-review fix"
+  # Passed through to the /rig-review fix skill; mirrors review.maxRounds.
+  REVIEW_MAX_ROUNDS: "1"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      pr: ${{ steps.decide.outputs.pr }}
+    steps:
+      - uses: actions/checkout@v4
+      # Enablement is read from the marker on the CANONICAL default branch, not
+      # the ambient checkout tree (for pull_request_review the default checkout is
+      # not reliably main). Fetch main explicitly, then test the marker there.
+      - name: Fetch default branch for the enablement read
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+      - name: Decide whether to run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr }}
+          # pull_request_review payload (empty on other events)
+          REVIEW_AUTHOR: ${{ github.event.review.user.login }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          # issue_comment payload (empty on other events)
+          IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_BOT_LOGIN: ${{ vars.REVIEW_BOT_LOGIN }}
+        run: |
+          set -euo pipefail
+          echo "pr=${PR:-}" >> "$GITHUB_OUTPUT"
+
+          # Enable gate: marker file must exist on the default branch.
+          if ! git cat-file -e origin/main:.github/auto-review-fix.enabled 2>/dev/null; then
+            echo "auto-review-fix disabled (no .github/auto-review-fix.enabled on main) — skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          if [ -z "${PR:-}" ]; then
+            echo "no PR number resolved — skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              echo "manual dispatch → run."; echo "run=true" >> "$GITHUB_OUTPUT" ;;
+            issue_comment)
+              if [ "$IS_PR_COMMENT" = "true" ] && printf '%s' "$COMMENT_BODY" | grep -qF "$TRIGGER_PHRASE"; then
+                echo "PR comment contains trigger phrase → run."; echo "run=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "not a triggering PR comment → skip."; echo "run=false" >> "$GITHUB_OUTPUT"
+              fi ;;
+            pull_request_review)
+              # Only the auto path: a submitted review. If REVIEW_BOT_LOGIN is set,
+              # require it to be the author (ignore human / other-bot reviews).
+              if [ "$REVIEW_STATE" != "commented" ] && [ "$REVIEW_STATE" != "changes_requested" ]; then
+                echo "review state '$REVIEW_STATE' not actionable → skip."; echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+              fi
+              if [ -n "${REVIEW_BOT_LOGIN:-}" ] && [ "$REVIEW_AUTHOR" != "$REVIEW_BOT_LOGIN" ]; then
+                echo "review by '$REVIEW_AUTHOR' is not the configured bot → skip."; echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+              fi
+              echo "actionable review from '$REVIEW_AUTHOR' → run."; echo "run=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "unhandled event → skip."; echo "run=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  fix:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write # push the fix commit to the PR branch
+      pull-requests: write # comment, reply in inline threads, re-trigger the bot
+      issues: write
+    steps:
+      - name: Fail early if required CI credentials are missing
+        env:
+          KEY: ${{ secrets.CLAUDE_CI_ANTHROPIC_API_KEY }}
+          APP_ID: ${{ vars.AUTO_FIX_APP_ID }}
+          INSTALLATION_ID: ${{ vars.AUTO_FIX_INSTALLATION_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -z "${KEY:-}" ] && missing="$missing CLAUDE_CI_ANTHROPIC_API_KEY"
+          [ -z "${APP_ID:-}" ] && missing="$missing AUTO_FIX_APP_ID"
+          [ -z "${INSTALLATION_ID:-}" ] && missing="$missing AUTO_FIX_INSTALLATION_ID"
+          [ -z "${APP_PRIVATE_KEY:-}" ] && missing="$missing AUTO_FIX_APP_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required CI credentials:$missing — see auto-review-fix.yml header." >&2
+            exit 1
+          fi
+
+      # Resolve and check out the PR HEAD branch so /rig-review fix can commit + push
+      # to it. (For review/comment events the default checkout is the base ref.)
+      # persist-credentials:false — the fix push authenticates as the GitHub App
+      # (minted in the run step) so it triggers downstream checks; leaving the
+      # default GITHUB_TOKEN persisted would let a stray push use it and get its
+      # checks suppressed.
+      - name: Resolve PR head
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PR="${{ needs.gate.outputs.pr }}"
+          REF=$(gh pr view "$PR" --repo "${{ github.repository }}" --json headRefName -q .headRefName)
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.head.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: /tmp/bun-cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+
+      - name: Install Claude Code CLI
+        run: |
+          set -euo pipefail
+          bun install -g @anthropic-ai/claude-code
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+      - name: Verify CLI resolves
+        run: claude --version
+
+      # Mark the checked-out workspace as trusted for Claude Code. Without this,
+      # the CLI treats the runner's fresh checkout as untrusted and silently
+      # DROPS every permissions.allow entry from .claude/settings.json.
+      - name: Trust the workspace for Claude Code
+        run: |
+          set -euo pipefail
+          CONFIG="$HOME/.claude.json"
+          [ -f "$CONFIG" ] || echo '{}' > "$CONFIG"
+          tmp="$(mktemp)"
+          jq --arg p "$GITHUB_WORKSPACE" \
+            '.projects[$p].hasTrustDialogAccepted = true' "$CONFIG" > "$tmp"
+          mv "$tmp" "$CONFIG"
+
+      # Run the loop by invoking the repo's own /rig-review fix skill directly.
+      # --dangerously-skip-permissions is required for non-interactive tool use;
+      # blast radius is contained by the repo-scoped App token, branch protection
+      # (no direct main push), and the gate limiting when this fires.
+      - name: Run /rig-review fix (headless)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_CI_ANTHROPIC_API_KEY }}
+          # App creds → mint an installation token in-step (below). Read via env
+          # by scripts/mint-gh-app-token.sh; the token never touches a step
+          # output/env-file, so it can't leak across steps.
+          APP_ID: ${{ vars.AUTO_FIX_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.AUTO_FIX_APP_PRIVATE_KEY }}
+          INSTALLATION_ID: ${{ vars.AUTO_FIX_INSTALLATION_ID }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.gate.outputs.pr }}
+          ROUNDS: ${{ env.REVIEW_MAX_ROUNDS }}
+        run: |
+          set -euo pipefail
+          # Mint a GitHub App installation token and drive git + gh AS THE APP.
+          # (Pushing with the default GITHUB_TOKEN would make GitHub suppress
+          # workflow runs on the resulting commit — see header.)
+          TOKEN=$(bash scripts/mint-gh-app-token.sh)
+          echo "::add-mask::$TOKEN"
+          export GH_TOKEN="$TOKEN" GITHUB_TOKEN="$TOKEN"
+          # Route the skill's `git push` through the App token (checkout used
+          # persist-credentials:false, so no default-token remote is configured).
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          claude -p "/rig-review fix ${PR} --rounds ${ROUNDS}" \
+            --dangerously-skip-permissions \
+            --max-turns 80

@@ -1,0 +1,234 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Test Gate  (rig CI template)
+#
+# WHAT IT DOES
+#   The core CI gate. Three moving parts:
+#     1. `changes` — a path-filter job that computes ONE diff and exposes
+#        booleans the test jobs gate on (so an unrelated PR doesn't pay for the
+#        whole suite). Runs on every event; falls back to "run everything" on
+#        push / when no diff range is computable — so it fails OPEN into more
+#        testing, never less.
+#     2. `shard`  — a sharded, parallel test matrix (default 4 shards).
+#     3. `test`   — an AGGREGATE gate job that succeeds only when every needed
+#        job passed (skipped counts as pass; failure/cancelled fail). THIS is
+#        the single check branch protection should require — keep its name
+#        `test` stable.
+#   Plus an optional `project_gates` placeholder job for your own checks.
+#
+#   IMPORTANT cancellation semantics (do not "simplify" away):
+#   The aggregate treats a `cancelled` result as a FAIL on the gating contexts
+#   (pull_request / merge_group) — otherwise someone could cancel the required
+#   `test` check and merge untested code. A whole-run cancellation of a `push`
+#   run (benign concurrency churn from a newer push) is the ONE exception and
+#   passes, scoped to push only.
+#
+# PLACEHOLDERS TO FILL
+#   <DEFAULT_BRANCH>      e.g. main.
+#   <TEST_COMMAND>        unit-test suite command (test.command), e.g. `bun test`.
+#   PATH_FILTER globs     in the `changes` job — the package/source paths that
+#                         should trigger the suite (sourceScope).
+#   Setup step            pick bun (default) or node — see the two commented
+#                         variants in each job.
+#   Postgres service      OPTIONAL — uncomment the `services:` block + pre-pull
+#                         if test.requiresDatabase is true.
+#   Shard count           matrix `shard:` list and the `--shard=N/TOTAL` arg.
+#
+# GITHUB SECRETS / VARS NEEDED
+#   None by default. (If your tests need secrets, add them per-job.)
+# ─────────────────────────────────────────────────────────────────────────────
+name: Test Gate
+
+on:
+  push:
+    branches: [<DEFAULT_BRANCH>] # <-- e.g. main
+  pull_request:
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Single source of truth for the path filter. Computes one diff and exposes a
+  # `run` boolean the test jobs gate on. Extend with more outputs if you split
+  # your suite by package (e.g. platform/app/templates) — mirror this pattern.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.filter.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect relevant changes
+        id: filter
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            BASE="${{ github.event.merge_group.base_sha }}"
+            if [ -n "$BASE" ]; then RANGE="$BASE...HEAD"; fi
+          fi
+
+          # Push to default branch, or merge_group with no base_sha: run everything.
+          if [ -z "${RANGE:-}" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "no diff range for event '${{ github.event_name }}'; running suite"
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only $RANGE)
+          echo "changed files in $RANGE:"; echo "$CHANGED"
+
+          # PLACEHOLDER path filter: the source paths whose changes should run
+          # the suite. Include shared roots (lockfile, this workflow) so a
+          # dependency bump still runs tests. Capture matches instead of
+          # `grep -q`: under `pipefail`, `grep -q` SIGPIPEs on a large diff and
+          # the `if` reads it as false, silently skipping the suite.
+          PATHS='^src/|^package\.json|^bun\.lock|^\.github/workflows/test-gate\.yml'
+          HIT=$(echo "$CHANGED" | grep -E "$PATHS" || true)
+          if [ -n "$HIT" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
+
+  # Sharded, parallel test matrix. Each shard is independent; bump the list and
+  # the `--shard=N/TOTAL` denominator together to change parallelism.
+  #
+  # OPTIONAL throwaway Postgres — uncomment the `services:` block below and the
+  # pre-pull step if test.requiresDatabase is true. (If your test harness spins
+  # up its own DB in Docker, you may not need `services:` at all.)
+  shard:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    # services:
+    #   postgres:
+    #     image: postgres:17-alpine
+    #     env:
+    #       POSTGRES_PASSWORD: postgres
+    #       POSTGRES_DB: test
+    #     ports:
+    #       - 5432:5432
+    #     options: >-
+    #       --health-cmd "pg_isready -U postgres"
+    #       --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # ── Setup: pick ONE. Default is Bun (the origin's runtime). ──────────
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # --- Node + pnpm/npm variant (comment out the bun block above) --------
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 20
+      #     cache: pnpm      # or npm
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        # node variant: pnpm install --frozen-lockfile   (or: npm ci)
+
+      # OPTIONAL: if using a Postgres image, pre-pull with backoff so a single
+      # registry hiccup doesn't kill the shard. Uncomment alongside `services:`.
+      # - name: Pre-pull Postgres image
+      #   run: |
+      #     for i in 1 2 3 4 5; do
+      #       if docker pull postgres:17-alpine; then exit 0; fi
+      #       echo "pull attempt $i failed; retrying in $((i * 5))s"; sleep $((i * 5))
+      #     done
+      #     echo "failed to pull postgres image after 5 attempts"; exit 1
+
+      - name: Run tests (shard ${{ matrix.shard }}/4)
+        run: <TEST_COMMAND> --shard=${{ matrix.shard }}/4 # <-- e.g. bun test --shard=...
+
+  # ── OPTIONAL: project-specific gates go here ─────────────────────────────
+  # Add your own checks as steps here (or as sibling jobs) and wire them into
+  # the aggregate `needs:` + result loop below.
+  #
+  # Common pattern — a NO-NEW-VIOLATIONS baseline gate: run `tsc`/`eslint`
+  # against a committed baseline file so only NEW type/lint errors fail the PR,
+  # not the pre-existing backlog. Same idea works for migration-timestamp
+  # collision checks, config-parity guards, etc. Left as a no-op stub:
+  project_gates:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Project-specific gates
+        run: echo "No project gates configured — add typecheck/lint/baseline steps here."
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # Aggregate guard. Branch protection requires the check named `test`, so this
+  # job keeps that name and only succeeds when every needed job passed. Skipped
+  # (path-filtered-out) jobs count as pass; only `failure`/`cancelled` fail.
+  # `changes` is in `needs` so a broken filter fails CLOSED rather than passing
+  # silently. See the header for the push-vs-gating cancellation rationale.
+  test:
+    needs: [changes, shard, project_gates]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      # cancelled() is a status-check function allowed only in an `if:`, not
+      # inside a `run:` ${{ }}. Capture the "superseded push run" decision here.
+      - name: Detect superseded push run
+        id: supersede
+        if: ${{ github.event_name == 'push' && cancelled() }}
+        run: echo "superseded=true" >> "$GITHUB_OUTPUT"
+
+      - name: Aggregate results
+        if: ${{ always() }}
+        run: |
+          changes_result="${{ needs.changes.result }}"
+          shard_result="${{ needs.shard.result }}"
+          project_gates_result="${{ needs.project_gates.result }}"
+          echo "changes: $changes_result; shard: $shard_result; project_gates: $project_gates_result"
+
+          # 1) A genuine `failure` always fails the gate — even if the run was
+          #    also cancelled/superseded (checked BEFORE the push short-circuit).
+          for r in "$changes_result" "$shard_result" "$project_gates_result"; do
+            case "$r" in
+              failure) echo "::error::required job result is '$r' — failing the gate."; exit 1 ;;
+            esac
+          done
+
+          # 2) No failures. A cancelled *push* run is benign concurrency churn
+          #    (superseded by a newer push to the same ref) — pass rather than
+          #    synthesizing a red on the default branch. Scoped to push only:
+          #    pull_request / merge_group ARE the branch-protection gates, so a
+          #    cancelled required run there must stay non-green.
+          if [ "${{ steps.supersede.outputs.superseded }}" = "true" ]; then
+            echo "push run cancelled with no failures — superseded by a newer push; passing."
+            exit 0
+          fi
+
+          # 3) Strict gate for the gating contexts (and isolated job-level
+          #    cancellation): a `cancelled` result is unknown — treat as fail.
+          for r in "$changes_result" "$shard_result" "$project_gates_result"; do
+            case "$r" in
+              failure|cancelled) exit 1 ;;
+            esac
+          done
+
+  # ── OPTIONAL: Slack alert when the suite fails on the default branch ──────
+  # Uncomment to ping Slack on a red post-merge run (needs slack-notify.yml
+  # installed alongside this workflow, and the SLACK_CI_WEBHOOK_URL secret).
+  # Gated to push only so PR/merge_group failures — the normal dev loop —
+  # don't flood the channel.
+  #
+  # notify-failure:
+  #   if: failure() && github.event_name == 'push'
+  #   needs: [changes, shard, project_gates]
+  #   uses: ./.github/workflows/slack-notify.yml
+  #   with:
+  #     workflow_name: Test Gate (main)
+  #     status: failure
+  #   secrets: inherit

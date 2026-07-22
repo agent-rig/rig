@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/agent-rig/rig/rig.schema.json",
+  "title": "Rig project profile",
+  "description": "Per-project configuration read by rig skills at runtime. Lives at .rig/config.json in the consuming project. Every parameterizable skill reads this instead of hardcoding project specifics. Missing keys fall back to the documented defaults.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "description": "Optional pointer to this schema for editor validation." },
+    "project": {
+      "type": "object",
+      "description": "Identity of the consuming project.",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "Human name of the project, e.g. \"Acme\"." },
+        "repo": { "type": "string", "description": "GitHub owner/name, e.g. \"my-org/my-app\". Used by review/CI skills for gh api calls." }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Language toolchain. Drives install/test/build command generation and CI setup steps.",
+      "additionalProperties": false,
+      "properties": {
+        "packageManager": {
+          "type": "string",
+          "enum": ["bun", "pnpm", "npm", "yarn", "none"],
+          "default": "npm",
+          "description": "Also selects the CI setup action (setup-bun vs setup-node) and install command."
+        },
+        "installCommand": { "type": "string", "description": "Override the derived install command (default derived from packageManager, e.g. \"bun install\")." }
+      }
+    },
+    "test": {
+      "type": "object",
+      "description": "How to run tests. Consumed by rig-debug, rig-tidy, rig-review, rig-worktree, rig-task, and the CI test-gate.",
+      "additionalProperties": false,
+      "properties": {
+        "command": { "type": "string", "default": "npm test", "description": "Full unit-test suite command, e.g. \"bun run test\"." },
+        "integrationCommand": { "type": "string", "description": "Integration-only command, if separate." },
+        "e2eCommand": { "type": "string", "description": "End-to-end command, if any." },
+        "requiresDatabase": { "type": "boolean", "default": false, "description": "If true, the CI test-gate provisions a throwaway Postgres service." }
+      }
+    },
+    "sourceScope": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["src"],
+      "description": "Default path globs skills operate on when none is given, e.g. [\"packages/api/src\"]. rig-tidy/rig-spike/rig-sprint use the first entry as their default scope."
+    },
+    "vcs": {
+      "type": "object",
+      "description": "Branch and base-ref conventions. Consumed by rig-worktree, rig-task, rig-review, rig-sprint.",
+      "additionalProperties": false,
+      "properties": {
+        "defaultBranch": { "type": "string", "default": "main", "description": "The trunk branch." },
+        "baseRef": { "type": "string", "default": "origin/main", "description": "What rig-review diffs against and worktrees branch from." },
+        "branchConvention": {
+          "type": "string",
+          "default": "{user}/{ticket}-{slug}",
+          "description": "Template for new branch names. Placeholders: {user}, {ticket}, {slug}."
+        },
+        "protectedBranchMergeQueue": { "type": "boolean", "default": false, "description": "If true, flows use `gh pr merge --auto` and never pass --rebase/--squash (the queue's method wins)." }
+      }
+    },
+    "tracker": {
+      "type": "object",
+      "description": "Issue tracker binding. Consumed by ticket, sprint, and implement-style flows. Set provider to \"none\" to strip all tracker steps.",
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string", "enum": ["linear", "github", "none"], "default": "none" },
+        "team": { "type": "string", "description": "Linear team name/key (e.g. \"Engineering\") or GitHub org." },
+        "project": { "type": "string", "description": "Linear project name (e.g. \"Acme\")." },
+        "ticketPrefix": { "type": "string", "description": "Ticket identifier prefix, e.g. \"INC-\". Used to detect ticket IDs in branch names and PR titles." },
+        "labelMapFile": { "type": "string", "default": ".claude/label-mapping.md", "description": "Path to the PR/tracker label source-of-truth doc." },
+        "githubIntegration": { "type": "boolean", "default": false, "description": "If true, the tracker auto-transitions issue state from GitHub branch/PR events, so skills must NOT set states manually." }
+      }
+    },
+    "review": {
+      "type": "object",
+      "description": "Code-review configuration. Consumed by rig-review (find and fix verbs).",
+      "additionalProperties": false,
+      "properties": {
+        "patternsFile": { "type": "string", "default": ".claude/REVIEWER.md", "description": "Path to the project's P0–P3 review-pattern catalog." },
+        "bot": { "type": "string", "enum": ["codex", "claude", "none"], "default": "none", "description": "Which PR review bot to poll/re-trigger in rig-review fix, if any." },
+        "botRetrigger": { "type": "string", "description": "The comment string that re-triggers the bot, e.g. \"@codex review\"." },
+        "maxRounds": { "type": "integer", "default": 5, "description": "Max fix<->re-review rounds before handing back to a human." }
+      }
+    },
+    "agents": {
+      "type": "object",
+      "description": "Optional overrides mapping the kit's canonical agent roles to the agent names registered in this project. Defaults to the kit's own agents, rig-<role> (e.g. debugger->rig-debugger). Set a value only to point a role at a differently-named agent.",
+      "additionalProperties": { "type": "string" },
+      "properties": {
+        "debugger": { "type": "string" },
+        "reviewer": { "type": "string" },
+        "architect": { "type": "string" },
+        "qa": { "type": "string" },
+        "coder": { "type": "string" }
+      }
+    },
+    "ci": {
+      "type": "object",
+      "description": "CI-template parameters. Only relevant if you installed workflows from ci/. Each installed workflow documents which of these it reads.",
+      "additionalProperties": false,
+      "properties": {
+        "imageRegistry": { "type": "string", "default": "ghcr.io", "description": "Container registry for the generic image-build workflow." },
+        "slackWebhookSecret": { "type": "string", "default": "SLACK_CI_WEBHOOK_URL", "description": "Secret name holding the CI Slack webhook, consumed by slack-notify." },
+        "trustBoundaryPaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Paths that trip the deeper security-scan gate (auth, secrets, tenancy, billing surfaces)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# actions/labeler@v5 area-label rules  (rig CI template — COMPANION to
+# ci/workflows/label-pr.yml).
+#
+# INSTALL: copy this to .github/labeler.yml and edit the rules for your repo.
+# Each top-level key is a LABEL NAME that must already exist in your repo; the
+# globs under it decide when the label is applied from a PR's changed files.
+#
+# The `label-pr.yml` workflow adds these AREA labels; the TYPE label
+# (Feature/bug/Chore) is derived separately from the PR title in that workflow.
+# ─────────────────────────────────────────────────────────────────────────────
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.test.*'
+          - '**/*.spec.*'
+          - 'test/**'
+          - 'tests/**'
+
+src:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**'
+
+# Add your own sensitive-surface label, e.g.:
+# Security:
+#   - changed-files:
+#       - any-glob-to-any-file:
+#           - 'src/auth/**'
+#           - 'infra/**'

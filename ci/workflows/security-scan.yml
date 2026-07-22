@@ -1,0 +1,136 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Security Scan  (rig CI template)
+#
+# WHAT IT DOES
+#   One always-running gate that reports a single status on `pull_request`,
+#   `merge_group`, and `push` to your default branch:
+#     1. gitleaks secret scan — NO-NEW-SECRETS: scans only the commit range this
+#        change introduces (base..HEAD), not the whole history, so pre-existing
+#        findings don't fail every PR.
+#     2. Semgrep (p/owasp-top-ten, p/typescript, p/secrets) — the heavy pass,
+#        gated on a trust-boundary path change so ordinary PRs stay fast.
+#     3. (Optional) a custom "trust-boundary gate" step you supply — commented
+#        out below.
+#
+#   Keep this as ONE job. Do NOT split Semgrep into its own `paths:`-filtered
+#   job and mark it required: a path-skipped required job never reports on
+#   merge_group and wedges the merge queue.
+#
+# PLACEHOLDERS TO FILL
+#   <DEFAULT_BRANCH>        e.g. main
+#   TRUST_BOUNDARY_PATHS    env below — regex allowlist of paths that trip the
+#                           deeper scan (auth, secrets, tenancy, billing, etc.).
+#                           Mirrors `ci.trustBoundaryPaths` in .rig/config.json.
+#   SEMGREP_SCAN_PATHS      env below — directories Semgrep scans.
+#   (optional) your own trust-boundary gate script — see the commented step.
+#
+# GITHUB SECRETS / VARS NEEDED
+#   None. gitleaks binary and Semgrep are fetched at runtime; GITHUB_TOKEN is
+#   implicit. (Semgrep runs fully local — no SEMGREP_APP_TOKEN required.)
+#
+# TO ENFORCE
+#   Add `security-gate` as a required status check on your branch-protection
+#   ruleset (a repository settings change, not a code change).
+# ─────────────────────────────────────────────────────────────────────────────
+name: Security Scan
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [<DEFAULT_BRANCH>] # <-- e.g. main
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Regex allowlist of trust-boundary paths. A change touching any of these
+  # trips the Semgrep pass. Edit to match your repo's sensitive surfaces.
+  # Example (generic): auth, secrets/KMS, billing, webhooks, infra.
+  TRUST_BOUNDARY_PATHS: '^src/(auth|billing|secrets|kms|webhooks)/|^infra/|secret|stripe|webhook|ssrf'
+  # Directories Semgrep scans when a trust-boundary path changed.
+  SEMGREP_SCAN_PATHS: 'src'
+
+jobs:
+  security-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # ── OPTIONAL: custom trust-boundary gate ─────────────────────────────
+      # Drop in your own repo-specific, fast, baseline-gated check here — e.g.
+      # a "no new caller of the cross-tenant escape hatch" script. Keep it
+      # repo-wide and near-zero-false-positive so it can run on every PR.
+      # Uncomment and point at your script:
+      #
+      # - uses: oven-sh/setup-bun@v2        # or actions/setup-node@v4
+      # - name: Custom trust-boundary gate
+      #   run: <YOUR_SCRIPT>                # e.g. a "no new cross-tenant escape-hatch caller" baseline check
+      # ─────────────────────────────────────────────────────────────────────
+
+      # Secret scan via the gitleaks binary (the Action wrapper needs an org
+      # license; the binary does not). Scope: only the commits THIS change
+      # introduces. A repo-wide `gitleaks detect` re-flags every pre-existing
+      # finding and fails every PR — a no-new-secrets gate is what we want.
+      # `--log-opts` is passed to `git log`; two-dot `base..HEAD` = commits
+      # reachable from HEAD but not base. If no range is computable we fall
+      # back to scanning HEAD's single commit — never the whole history.
+      - name: Secret scan (gitleaks)
+        run: |
+          set -euo pipefail
+          VER=8.21.2
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE=$(git merge-base "origin/${{ github.base_ref }}" HEAD)
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            BASE="${{ github.event.merge_group.base_sha }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            BASE="${{ github.event.before }}"
+          fi
+          # Empty or all-zeros base (branch create / odd event): scan just HEAD.
+          case "${BASE:-}" in ""|0000000000000000000000000000000000000000) BASE="HEAD~1" ;; esac
+          echo "Scanning secret leaks in range ${BASE}..HEAD"
+          ./gitleaks detect --source . --log-opts="${BASE}..HEAD" \
+            --no-banner --redact --exit-code 1
+
+      # Did this change touch a trust-boundary path? Gate the heavy Semgrep
+      # pass on it so ordinary PRs stay fast.
+      - name: Detect trust-boundary changes
+        id: tb
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            BASE="${{ github.event.merge_group.base_sha }}"
+            [ -n "$BASE" ] && RANGE="$BASE...HEAD"
+          fi
+          # push to default branch, or no computable range: scan.
+          if [ -z "${RANGE:-}" ]; then echo "hit=true" >>"$GITHUB_OUTPUT"; exit 0; fi
+          CHANGED=$(git diff --name-only $RANGE)
+          echo "changed:"; echo "$CHANGED"
+          # Capture (not grep -q): grep -q + pipefail SIGPIPEs on a large diff
+          # and reads as false, silently skipping the scan.
+          HIT=$(echo "$CHANGED" | grep -E "$TRUST_BOUNDARY_PATHS" || true)
+          if [ -n "$HIT" ]; then echo "hit=true" >>"$GITHUB_OUTPUT"; else echo "hit=false" >>"$GITHUB_OUTPUT"; fi
+
+      - name: Semgrep (trust-boundary paths)
+        if: steps.tb.outputs.hit == 'true'
+        run: |
+          set -euo pipefail
+          pipx install semgrep >/dev/null 2>&1 || pip install --quiet semgrep
+          # Published rulesets (not hand-rolled — lower false-confidence risk).
+          # Add a repo-specific .semgrep/ ruleset via extra --config flags.
+          semgrep scan --error --quiet \
+            --config p/owasp-top-ten \
+            --config p/typescript \
+            --config p/secrets \
+            ${SEMGREP_SCAN_PATHS}
+
+      - name: No sensitive paths changed
+        if: steps.tb.outputs.hit != 'true'
+        run: echo "No trust-boundary paths changed — Semgrep skipped (repo-wide checks still ran)."
