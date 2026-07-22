@@ -186,15 +186,28 @@ Loop, `round` starting at 1:
      [.[] | select((.user.login | test(\"$BOT\"; \"i\")) and .content == \"+1\" and .created_at > \"$PUSH_TIME\")] | length")
    INLINE=$(gh api "repos/$REPO/pulls/$PR/comments" -q "
      [.[] | select((.user.login | test(\"$BOT\"; \"i\")) and .created_at > \"$PUSH_TIME\")] | length")
-   # bugbot only: its verdict is a check-run, not a review/reaction.
+   # bugbot only: its verdict is a check-run, not a review/reaction. Filter
+   # server-side by name (so it can't fall off page 1 of an unfiltered list),
+   # take the NEWEST run by started_at (a push auto-starts one and `bugbot run`
+   # starts another on the same SHA — an older success must not win over a newer
+   # in-progress run), and guard the no-run-yet case (`// "none"`) so the jq
+   # concat doesn't error on early polls before Bugbot has created its run.
    SHA=$(gh pr view $PR --repo "$REPO" --json headRefOid -q .headRefOid)
-   CHECK=$(gh api "repos/$REPO/commits/$SHA/check-runs" -q "
-     [.check_runs[] | select(.name | test(\"bugbot\"; \"i\"))] | last | (.status + \":\" + (.conclusion // \"\"))")
+   CHECK=$(gh api "repos/$REPO/commits/$SHA/check-runs" -f "check_name=Cursor Bugbot" -q "
+     [.check_runs[] | select(.name | test(\"bugbot\"; \"i\"))] | sort_by(.started_at) | last
+     | ((.status // \"none\") + \":\" + (.conclusion // \"\"))")
+   [ -z "$CHECK" ] && CHECK="none:"   # gh/network error → treat as not-yet-run
    ```
 2. **Classify** (codex/claude use the review/reaction signals; bugbot uses `CHECK`):
-   - **`bot: bugbot`** — `CHECK == "completed:success"` → **clean**, exit;
-     `completed:` with any other conclusion (`neutral`/`action_required`/`failure`)
-     AND `INLINE > 0` → **actionable**, go to 3; not yet `completed:` → keep polling.
+   - **`bot: bugbot`** (classify off `CHECK`, the newest run for the head SHA):
+     - `completed:success` → **clean**, exit.
+     - `completed:` with any other conclusion (`neutral`/`action_required`/`failure`):
+       - `INLINE > 0` → **actionable**, go to 3.
+       - `INLINE == 0` → **race window** (inline threads lag the check conclusion,
+         like the codex `COMMENTED` case): keep polling. If inlines never populate
+         within budget, treat `neutral` as **clean** (body-only, no actionable
+         threads) and `failure`/`action_required` as **actionable** to stay safe.
+     - anything not `completed:` (`none:`/`queued:`/`in_progress:`) → keep polling.
    - `REACTION > 0` or `REVIEW == "APPROVED"` → **clean**, exit.
    - `REVIEW == "COMMENTED"` AND `INLINE > 0` → **actionable**, go to 3.
    - `REVIEW == "COMMENTED"` AND `INLINE == 0` → **race window**: review state can
