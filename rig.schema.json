@@ -81,7 +81,7 @@
       "additionalProperties": false,
       "properties": {
         "patternsFile": { "type": "string", "default": ".claude/REVIEWER.md", "description": "Path to the project's P0–P3 review-pattern catalog." },
-        "bot": { "type": "string", "enum": ["codex", "claude", "none"], "default": "none", "description": "Which PR review bot to poll/re-trigger in rig-review fix, if any." },
+        "bot": { "type": "string", "enum": ["codex", "claude", "bugbot", "none"], "default": "none", "description": "Which PR review bot to poll/re-trigger in rig-review fix, if any." },
         "botRetrigger": { "type": "string", "description": "The comment string that re-triggers the bot, e.g. \"@codex review\"." },
         "maxRounds": { "type": "integer", "default": 5, "description": "Max fix<->re-review rounds before handing back to a human." }
       }

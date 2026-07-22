@@ -162,6 +162,8 @@ login, not an exact string — most bots post under more than one identity (a
 misses half the surface and stalls polling.
 - `bot: codex` → regex `chatgpt-codex-connector`.
 - `bot: claude` → regex `claude`.
+- `bot: bugbot` → regex `cursor` (Cursor Bugbot posts as `cursor[bot]`; re-trigger
+  comment is `bugbot run`).
 
 Loop, `round` starting at 1:
 
