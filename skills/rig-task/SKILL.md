@@ -104,6 +104,13 @@ Steps 6–7 are `finish`.** A bare `rig-task` runs all of them in order.
    Base from `vcs.baseRef`. `cd` into the printed worktree path (`$WT`); use it
    as `{worktree-path}` in the agent prompts below.
 
+   **Name the session** so a background-job list reads as the work, not the
+   prompt (Claude-Code-only; no-ops elsewhere). Pass `--name` through to
+   `/rig-worktree` — `"FEAT: <title> (<ticket>)"` for new behavior/bug fixes
+   (conventional-commit `feat:`/`fix:`), `"CHORE: <title> (<ticket>)"` for
+   maintenance (`chore:`/`refactor:`/`test:`/`docs:`). Add `--skip-if-prefix
+   "EPIC:"` so an epic label set by `/rig-epic` wins when this runs as a child.
+
 ## Step 2 — Spec review
 
 Launch the **architect** and **qa** agents in parallel (names via `agents.*`):

@@ -66,11 +66,13 @@ only required argument.
   "reuse a child worktree" path.
 - `--no-install` — skip the dependency install (rarely wanted; only for
   a read-only checkout).
-- `--name <session-name>` — optional background-job/session display name.
-  Delegates to an optional `set-session-name.sh` if the host provides one;
-  a no-op otherwise (the kit does not ship that script).
-- `--skip-if-prefix <p>` — passed through to `set-session-name.sh`;
-  leave an existing name in place if it starts with `<p>`.
+- `--name <session-name>` — background-job/session display name. Delegates to
+  `set-session-name.sh` (ships with the kit). **Claude-Code-only** — it renames
+  the FleetView background-job entry so the job list reads as the work (the
+  ticket/epic) instead of the raw prompt; a clean no-op on any other agent.
+- `--skip-if-prefix <p>` — passed through to `set-session-name.sh`; leave an
+  existing name in place if it starts with `<p>` (so an `EPIC:` label set by
+  `rig-epic` wins over a per-child `FEAT:`/`CHORE:` label).
 
 ## Create — procedure
 
