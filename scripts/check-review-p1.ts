@@ -4,10 +4,11 @@
  * (blocking) findings from your AI review bot.
  *
  * Many review bots never use GitHub's APPROVED state; they post findings as
- * inline review threads whose first comment carries a severity marker (a "P1"
- * shields.io badge, or the literal word "blocking"). Teams routinely merge past
- * these. This gate fails while any such P1 thread is still open AND still
- * applies to the code, and goes green when none remain.
+ * inline review threads whose first comment carries a severity marker — a "P1"
+ * shields.io badge, the literal word "blocking", or a "Critical"/"High Severity"
+ * header (Cursor Bugbot). Teams routinely merge past these. This gate fails while
+ * any such blocking thread is still open AND still applies to the code, and goes
+ * green when none remain.
  *
  * "Still applies" = NOT outdated: when a later commit changes the hunk the
  * finding points at, GitHub marks the thread `isOutdated` and we ignore it — so
@@ -42,8 +43,11 @@ import { execFileSync } from "node:child_process";
 const REVIEW_BOT_LOGIN = process.env.REVIEW_BOT_LOGIN ?? "<REVIEW_BOT_LOGIN>";
 const BOT = new RegExp(REVIEW_BOT_LOGIN.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 
-// A thread is "P1/blocking" if its first comment carries either marker.
-const P1 = /badge\/P1-|(^|[^a-z])blocking([^a-z]|$)/i;
+// A thread is "P1/blocking" if its first comment carries any blocking marker:
+// a shields.io `P1` badge, the word "blocking", or a Critical/High severity
+// header (Cursor Bugbot writes `**High Severity**` / `**Critical Severity**`,
+// never a P1 badge — matching author alone would let those slip past the gate).
+const P1 = /badge\/P1-|(^|[^a-z])blocking([^a-z]|$)|\b(critical|high)\s+severity\b/i;
 // ───────────────────────────────────────────────────────────────────────────
 
 const pr = Number(process.argv[2]);
