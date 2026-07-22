@@ -193,7 +193,7 @@ Loop, `round` starting at 1:
    # in-progress run), and guard the no-run-yet case (`// "none"`) so the jq
    # concat doesn't error on early polls before Bugbot has created its run.
    SHA=$(gh pr view $PR --repo "$REPO" --json headRefOid -q .headRefOid)
-   CHECK=$(gh api "repos/$REPO/commits/$SHA/check-runs" -f "check_name=Cursor Bugbot" -q "
+   CHECK=$(gh api "repos/$REPO/commits/$SHA/check-runs?check_name=Cursor%20Bugbot" -q "
      [.check_runs[] | select(.name | test(\"bugbot\"; \"i\"))] | sort_by(.started_at) | last
      | ((.status // \"none\") + \":\" + (.conclusion // \"\"))")
    [ -z "$CHECK" ] && CHECK="none:"   # gh/network error → treat as not-yet-run
