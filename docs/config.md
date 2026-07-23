@@ -51,7 +51,7 @@ Set `provider: "none"` to strip all ticket steps from `ticket`/`sprint`/review f
 | `project` | — | Linear project name. |
 | `ticketPrefix` | — | e.g. `INC-`; detects ticket IDs in branches/PR titles. |
 | `labelMapFile` | `.claude/label-mapping.md` | PR/tracker label source of truth. |
-| `githubIntegration` | `false` | If true, the tracker auto-transitions state from GitHub events — skills must NOT set states manually. |
+| `githubIntegration` | `false` | If true, GitHub drives PR/merge transitions (In Progress on PR-open, In Review, Done on merge); skills set only the start-of-work In Progress, which GitHub can't observe before a PR exists. |
 
 ## `review`
 | Key | Default | Meaning |

@@ -23,7 +23,7 @@ Reads `.rig/config.json` (missing keys → defaults):
 | `tracker.team` | — | Linear team / GitHub org for list/create. |
 | `tracker.project` | — | Linear project for list/create. |
 | `tracker.ticketPrefix` | — | Recognize ticket IDs in `$ARGUMENTS`. |
-| `tracker.githubIntegration` | `false` | If true, do NOT move tracker states by hand. |
+| `tracker.githubIntegration` | `false` | If true, GitHub drives PR/merge transitions; each `/rig-task` sets only the start-of-work In Progress. |
 | `vcs.baseRef` | `origin/main` | Base each ticket's branch is cut from. |
 | `vcs.branchConvention` | `{user}/{ticket}-{slug}` | New-branch template. |
 | `vcs.defaultBranch` | `main` | Trunk each PR targets. |
@@ -128,9 +128,9 @@ the sprint.
      description clues (ad-hoc: the "depends on #k" notes) to order them.
 3. **Show the proposed phases** to the user for confirmation.
 4. **Mark items in-flight (tracker only):**
-   - **Guard — `tracker.githubIntegration`:** if true, state is
-     auto-transitioned by GitHub branch/PR activity, so **do NOT** move
-     states manually — opening each item's PR advances it. Skip this step.
+   - **Guard — `tracker.githubIntegration`:** if true, skip the bulk move
+     here — each `/rig-task` sets its own item to "In Progress" at start
+     (Step 1), and GitHub advances In Review / Done from PR events.
    - Otherwise, move every item in the sprint to Todo (Linear:
      `save_issue` with `state: "Todo"`).
    - Ad-hoc mode: nothing to move.

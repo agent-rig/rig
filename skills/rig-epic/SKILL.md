@@ -271,4 +271,6 @@ or gone on origin. Epic-specific *policy* here; the teardown delegates to
   `.rig/epics/*.json` note carries why-it's-an-epic, the dependency chain, and
   what got descoped. Future sessions shouldn't re-derive the plan.
 - **Respect the tracker integration.** When `tracker.githubIntegration` is true,
-  never hand-transition child/parent states — branch + closes-verb drive them.
+  don't hand-transition child/parent states to In Review / Done — the branch +
+  closes-verb drive those. (Each child's start-of-work "In Progress" is set by
+  its own `/rig-task`, Step 1 — GitHub can't see local work before a PR.)

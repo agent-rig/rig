@@ -27,8 +27,10 @@ Reads `.rig/config.json` (defaults in parentheses):
   spec is loaded and the PR is linked. `none` → the item is an ad-hoc task
   description; no ticket calls.
 - `tracker.ticketPrefix` — e.g. `ABC-`; used to infer a ticket from the branch.
-- `tracker.githubIntegration` — when `true`, do **not** hand-transition tracker
-  state; the PR link drives it. When `false`/absent, you may move states.
+- `tracker.githubIntegration` — when `true`, GitHub drives PR/merge transitions
+  (In Review, Done); rig still sets the start-of-work "In Progress" (Step 1),
+  which GitHub can't observe before a PR exists. When `false`/absent, you may
+  move states freely.
 - `tracker.labelMapFile` (`.claude/label-mapping.md`) — label source of truth.
 - `vcs.baseRef` (`origin/main`), `vcs.defaultBranch` (`main`),
   `vcs.branchConvention` (`{user}/{ticket}-{slug}`),
@@ -85,9 +87,12 @@ Steps 6–7 are `finish`.** A bare `rig-task` runs all of them in order.
 
 1. **Load the spec.**
    - `tracker: linear` → fetch the issue via the Linear MCP `get_issue`; the
-     description + acceptance criteria are the spec. **Do not** set state to
-     "In Progress" when `tracker.githubIntegration` is true — the branch/PR
-     drives it.
+     description + acceptance criteria are the spec. **Set the issue to "In
+     Progress"** now (Linear: `save_issue` with `state: "In Progress"`) — work
+     is starting. Do this **even when `tracker.githubIntegration` is true**: a
+     GitHub integration can't observe local work until a PR exists, so this is
+     the one transition it can't drive. It's idempotent (PR-open sets the same
+     state), and rig still leaves In Review / Done to GitHub (Step 7).
    - `tracker: github` → fetch the issue via `gh issue view`.
    - `tracker: none` → the argument/task description is the spec; if it's a
      one-liner, ask the user to expand the acceptance criteria.
@@ -191,7 +196,8 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
      dependency/migration or core-domain touch and **why existing code wasn't
      reused** (write "No architectural change." otherwise).
 4. In tracker mode, link the PR to the item (Linear: `create_attachment` with
-   the PR URL — **not** `save_issue` when `githubIntegration` is true). Ensure
+   the PR URL — linking is an attachment, not a `save_issue` state move; with
+   `githubIntegration`, In Review / Done are GitHub's from here). Ensure
    the item's labels match `tracker.labelMapFile` if that file exists.
 5. Capture the PR number for Step 6.
 
@@ -229,8 +235,10 @@ Only `clean` is merge-green; everything else stops for a human.
 
 ## Step 7 — Hand back
 
-Print the final outcome line and the PR URL. Don't auto-merge. Don't
-hand-transition tracker state when `tracker.githubIntegration` is true.
+Print the final outcome line and the PR URL. Don't auto-merge. When
+`tracker.githubIntegration` is true, don't hand-transition state **here** —
+In Review / Done are GitHub's to set (the start-of-work "In Progress" was set
+in Step 1).
 
 If invoked by `/rig-sprint`, **return the outcome string** so the caller can decide
 whether to merge, and skip any local-QA offer (the caller makes it once).
