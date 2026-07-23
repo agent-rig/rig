@@ -124,11 +124,17 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
    `<integration-branch>`, not the trunk" note to each child so the next agent
    doesn't re-read this skill. Respect `tracker.githubIntegration` — don't
    hand-transition states.
-5. **Report** the branch, the children, and the next step.
+5. **Name the session** `"EPIC: <parent title> (<parent>)"` via
+   `scripts/set-session-name.sh` (Claude-Code-only; no-ops elsewhere) so the
+   background-job list reads as the epic. Children set their own `FEAT:`/`CHORE:`
+   names with `--skip-if-prefix "EPIC:"`, so this epic label stays on top.
+6. **Report** the branch, the children, and the next step.
 
 ## `next` (single child)
 
-1. Resolve the active integration branch (one expected; ask if many).
+1. Resolve the active integration branch (one expected; ask if many). If the
+   session isn't already `EPIC:`-named (i.e. `next` invoked directly, not via
+   `start`), name it `"EPIC: <parent title> (<parent>)"` (Claude-Code-only).
 2. **Pick the next unblocked child:** the first not-done child whose `blockedBy`
    are all merged into the integration branch. State the pick + reasoning in the
    banner.
