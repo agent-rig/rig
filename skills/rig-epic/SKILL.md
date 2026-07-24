@@ -122,8 +122,9 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
    `/rig-task <child>` target the integration branch instead of the trunk.
 4. **If a tracker is configured**, add an "Integration branch: target
    `<integration-branch>`, not the trunk" note to each child so the next agent
-   doesn't re-read this skill. Respect `tracker.githubIntegration` — don't
-   hand-transition states.
+   doesn't re-read this skill, and ensure the **parent** is In Progress
+   (adaptive: move it only if not already started; defer if a live integration
+   did). Children get their own In Progress from their `/rig-task` Step 1.
 5. **Name the session** `"EPIC: <parent title> (<parent>)"` via
    `scripts/set-session-name.sh` (Claude-Code-only; no-ops elsewhere) so the
    background-job list reads as the epic. Children set their own `FEAT:`/`CHORE:`
@@ -138,25 +139,29 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
 2. **Pick the next unblocked child:** the first not-done child whose `blockedBy`
    are all merged into the integration branch. State the pick + reasoning in the
    banner.
-3. **Fast-forward the integration branch over the previous child's tip** (if
-   any):
-   ```bash
-   git fetch origin
-   git push origin origin/<previous-child-branch>:refs/heads/<integration-branch>
-   ```
-   This auto-closes the previous PR as MERGED (head == base). Safe to re-run.
-4. **Run `/rig-task <CHILD> --base <integration-branch>`** — the `--base`
-   override makes the child's worktree branch from, and its PR target, the
-   integration branch instead of the trunk. Run it one-shot (start→finish) so it
-   returns a single outcome string for the merge gate.
+3. **Ensure the previous child has landed.** With `--auto-merge` (Step 4) each
+   child's PR merges into the integration branch on its own once CI passes, so the
+   integration tip advances automatically — just `git fetch origin` and confirm.
+   (Fallback for a child run *without* `--auto-merge`: fast-forward the branch over
+   its tip — `git push origin origin/<previous-child-branch>:refs/heads/<integration-branch>`,
+   which auto-closes that PR as MERGED. Safe to re-run.)
+4. **Run `/rig-task <CHILD> --base <integration-branch> --auto-merge`** — `--base`
+   makes the child's worktree branch from, and its PR target, the integration
+   branch; `--auto-merge` makes the child enable `gh pr merge --rebase --auto` on
+   its own PR once its review is clean, so **CI lands it into the integration
+   branch** (the integration branch isn't the protected trunk, so a rebase
+   auto-merge is fine here). Run one-shot (start→finish); it returns a single
+   outcome string for the merge gate.
 5. **Merge gate — only `clean` is merge-green:**
-   - `clean` → merge the child PR **into the integration branch**:
-     `gh pr merge <N> --rebase --auto --delete-branch` (the integration branch
-     is not the protected trunk, so an explicit rebase-merge is fine here).
-     Record the child `merged` + its branch in the state file.
-   - anything else (`actionable`/`timeout`, or a tracker-parked state) → stop.
-     Surface the outcome, the PR URL, and any reviewer summary. Wait for the
-     user; don't retry a parked review.
+   - `clean` → the child enabled auto-merge, so its PR lands when CI passes.
+     **Wait** for it: poll `gh pr view <N> --json state` (~60s, up to ~30min)
+     until `MERGED`, then `git fetch origin` and confirm the tip advanced. Record
+     the child `merged` + its branch in the state file, and **ensure the child
+     ticket is Done** (adaptive — move only if not already Done; defer if a live
+     integration closed it). If CI fails / it never merges → treat as not-clean.
+   - anything else (`actionable`/`timeout`, or a tracker-parked state) → the child
+     did **not** enable auto-merge; stop. Surface the outcome, the PR URL, and any
+     reviewer summary. Wait for the user; don't retry a parked review.
 
 `next` does exactly one child. Use `run` for the loop.
 
@@ -237,8 +242,12 @@ opens only on `clean` or `applied`. On `paused`, stop and wait.
    - `--merge` → `gh pr merge <N> --squash --delete-branch`, adding `--auto` if
      CI gates it. **If `vcs.protectedBranchMergeQueue` is true**, use
      `gh pr merge <N> --auto` with **no** method flag (the queue's method wins).
-5. Don't hand-transition the parent's tracker state when
-   `tracker.githubIntegration` is true — the closes-verb handles it.
+5. **Parent state — adaptive** (don't trust `tracker.githubIntegration`; check
+   reality): with `--merge`, once the squash PR is MERGED ensure the parent is
+   **Done** (move only if not already Done — the closes-verb also closes it if a
+   live integration is connected; don't clobber). Without `--merge`, leave the
+   parent In Progress — it goes Done when a human merges the squash PR (a later
+   `finish`/reconcile run, or a live integration's closes-verb, sets it).
 6. **Delete the epic state file** `.rig/epics/<integration-branch>.json` (the
    work is on the trunk now).
 7. **Offer local verification.** Ask whether to verify the epic on a local build
@@ -276,7 +285,12 @@ or gone on origin. Epic-specific *policy* here; the teardown delegates to
 - **State file carries the *why*.** The integration branch carries the code; the
   `.rig/epics/*.json` note carries why-it's-an-epic, the dependency chain, and
   what got descoped. Future sessions shouldn't re-derive the plan.
-- **Respect the tracker integration.** When `tracker.githubIntegration` is true,
-  don't hand-transition child/parent states to In Review / Done — the branch +
-  closes-verb drive those. (Each child's start-of-work "In Progress" is set by
-  its own `/rig-task`, Step 1 — GitHub can't see local work before a PR.)
+- **Drive tracker state adaptively — `githubIntegration` is a hint, not a gate.**
+  The flag can claim `true` while nothing is actually connected (no PR ever links
+  to an issue), which silently strands tickets. So *ensure* each transition
+  idempotently: check the item's current state, move it only if it isn't already
+  there, and defer if a live integration already moved it (never clobber a
+  further-along state). rig sets parent In Progress (`start`), child Done (`next`,
+  once its PR is MERGED), and parent Done (`finish --merge`); a live branch +
+  closes-verb integration, if present, just gets there first. (Each child's
+  start-of-work "In Progress" is set by its own `/rig-task`, Step 1.)

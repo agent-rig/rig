@@ -1,14 +1,15 @@
 ---
 name: rig-task
-description: "Implement one unit of work end-to-end — from a tracker issue OR an ad-hoc description: spec review, TDD (RED→GREEN→REFACTOR), pre-PR self-review, open a PR, then drive the review-bot loop to clean. Runs start→finish in one shot by default; `start`/`finish` are optional phases for pause/resume. Sibling to /rig-epic (one unit vs many). Never auto-merges. Triggers on: 'implement', 'implement this', 'work on', 'pick up', 'start task', 'start <ISSUE>', 'finish task'."
-argument-hint: "[start|finish] [<issue-id> | \"<description>\"] [--local] — no subcommand runs start→finish in one shot. e.g. 'start ABC-18', 'start \"add dark mode\"', 'finish'."
+description: "Implement one unit of work end-to-end — from a tracker issue OR an ad-hoc description: spec review, TDD (RED→GREEN→REFACTOR), pre-PR self-review, open a PR, then drive the review-bot loop to clean. Runs start→finish in one shot by default; `start`/`finish` are optional phases for pause/resume. Sibling to /rig-epic (one unit vs many). Never auto-merges unless `--auto-merge` is passed (then CI is the merge gate). Triggers on: 'implement', 'implement this', 'work on', 'pick up', 'start task', 'start <ISSUE>', 'finish task'."
+argument-hint: "[start|finish] [<issue-id> | \"<description>\"] [--local] [--base <ref>] [--auto-merge] — no subcommand runs start→finish in one shot. e.g. 'start ABC-18', 'start \"add dark mode\"', 'finish'."
 ---
 
 # rig-task — implement one unit of work end-to-end
 
 Take a single unit of work — a tracker issue **or** an ad-hoc "implement this"
 with no issue filed — code it test-first, open a PR, drive it to a clean review,
-and hand back. **Never auto-merges.** This is the orchestrator over the kit's
+and hand back. **Never auto-merges unless `--auto-merge` is passed** (then CI
+gates the merge — see Step 5). This is the orchestrator over the kit's
 building blocks: it delegates isolation to `/rig-worktree`, review to
 `/rig-review`, and the fix loop to `/rig-review fix`, so each concern lives in
 one place.
@@ -75,6 +76,15 @@ a cloud auto-fix workflow is enabled (see Step 6).
 of `vcs.baseRef`. A caller like `/rig-epic` passes the integration branch here so
 the child stacks on it rather than the trunk.
 
+`--auto-merge` — once the pre-PR self-review (Step 4.5) is clean, enable
+`gh pr merge <N> --auto` so the PR lands **when CI / required checks pass — CI is
+the merge gate, not a human**. Method follows the base: `--rebase --delete-branch`
+into a stacked integration branch, `--squash` into the trunk; if
+`vcs.protectedBranchMergeQueue` is true, pass `--auto` with **no** method flag
+(the queue decides). Without this flag the skill never merges — it opens the PR
+and hands back. `/rig-epic` passes `--auto-merge` per child so each lands on the
+integration branch on its own.
+
 Print the resolved unit + phase as the first output line, e.g.
 `rig-task start: ABC-369 (from branch alice/abc-369-...)` or
 `rig-task start: ad-hoc "add dark mode"`.
@@ -85,14 +95,24 @@ Steps 6–7 are `finish`.** A bare `rig-task` runs all of them in order.
 
 ## Step 1 — Load the spec and set up a worktree
 
+0. **Base guard — before any worktree or agent work.** If this item is an epic
+   **child** — its tracker parent is an epic, or an integration branch
+   `<parent-slug>-*` for its parent already exists on origin (`git ls-remote
+   --heads origin`) — **and no stacked `--base` was given**, stop now: report that
+   it must stack on `<integration-branch>` (or be driven by `/rig-epic`), and do
+   **not** set up a worktree or spend spec-review/TDD. This catches an epic child
+   mistakenly launched against the trunk before any agent runs. (When `--base` is
+   supplied, a child is expected — proceed.)
 1. **Load the spec.**
    - `tracker: linear` → fetch the issue via the Linear MCP `get_issue`; the
      description + acceptance criteria are the spec. **Set the issue to "In
      Progress"** now (Linear: `save_issue` with `state: "In Progress"`) — work
      is starting. Do this **even when `tracker.githubIntegration` is true**: a
      GitHub integration can't observe local work until a PR exists, so this is
-     the one transition it can't drive. It's idempotent (PR-open sets the same
-     state), and rig still leaves In Review / Done to GitHub (Step 7).
+     the one transition it can't drive. It's idempotent (only move if not already
+     started). rig then **ensures In Review / Done idempotently** later (Steps
+     5/7) — deferring to a live integration if it already moved them, driving them
+     itself if nothing did (see the adaptive note in Step 5).
    - `tracker: github` → fetch the issue via `gh issue view`.
    - `tracker: none` → the argument/task description is the spec; if it's a
      one-liner, ask the user to expand the acceptance criteria.
@@ -202,15 +222,23 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
      **`## Architecture`** section stating any new abstraction/package/
      dependency/migration or core-domain touch and **why existing code wasn't
      reused** (write "No architectural change." otherwise).
-4. In tracker mode, link the PR to the item (Linear: `create_attachment` with
-   the PR URL — linking is an attachment, not a `save_issue` state move; with
-   `githubIntegration`, In Review / Done are GitHub's from here). Ensure
-   the item's labels match `tracker.labelMapFile` if that file exists.
+4. **Link the PR + move to In Review — adaptively** (works with *or* without a
+   live tracker↔GitHub integration; treat `tracker.githubIntegration` as a hint,
+   not a gate — it may claim `true` while nothing is actually connected):
+   - **Link:** `get_issue`; if no attachment already references this PR URL (a
+     live integration may have added one), `create_attachment` with the PR URL.
+   - **In Review:** `get_issue`; if the item is **not** already In Review or
+     beyond, move it there (`save_issue`). If the integration already advanced it,
+     leave it — never clobber a further-along state.
+   Ensure the item's labels match `tracker.labelMapFile` if that file exists.
 5. Capture the PR number for Step 6.
 
-**Do NOT `gh pr merge` here.** This skill never auto-merges. (When invoked by
-`/rig-sprint`, the caller decides merge based on the review outcome.) If the project
-ships a PR-labeler workflow, don't hand-add PR labels — it applies them.
+**Merge behavior.** Without `--auto-merge`, **do NOT `gh pr merge`** — open the PR
+and hand back (the human, `/rig-sprint`, or `/rig-epic` decides). **With
+`--auto-merge`**, the self-review is clean, so enable `gh pr merge <N> --auto` now
+(method per the `--auto-merge` flag doc above); **CI/required checks are the merge
+gate** — the PR lands on its own when they pass. Either way, don't hand-add PR
+labels if the project ships a PR-labeler workflow — it applies them.
 
 ---
 ## ── `finish` phase (Steps 6–7) ──
@@ -242,10 +270,13 @@ Only `clean` is merge-green; everything else stops for a human.
 
 ## Step 7 — Hand back
 
-Print the final outcome line and the PR URL. Don't auto-merge. When
-`tracker.githubIntegration` is true, don't hand-transition state **here** —
-In Review / Done are GitHub's to set (the start-of-work "In Progress" was set
-in Step 1).
+Print the final outcome line and the PR URL. **Tracker state — adaptive** (don't
+trust `tracker.githubIntegration`; check reality): if the PR has already **merged**
+by hand-back (e.g. `--auto-merge` landed it), ensure the item is **Done**
+(`get_issue`; move only if not already Done — defer if a live integration closed
+it). If the PR is still open, leave it **In Review** — the merge event (a later
+`finish` run, `/rig-epic`'s merge gate, or a live integration) moves it to Done.
+Never clobber a further-along state.
 
 If invoked by `/rig-sprint`, **return the outcome string** so the caller can decide
 whether to merge, and skip any local-QA offer (the caller makes it once).
