@@ -59,6 +59,35 @@ clone, no config editing, no prior install.
   default set and drops a config stub for you to edit by hand. It auto-detects
   your agent target(s); override with `--target claude-code,agents-md`.
 
+## Pairs with Smithers (optional)
+
+[Smithers](https://smithers.sh) is a **separate, complementary** tool — a
+crash-resistant AI-workflow orchestrator (multi-step runs persisted to SQLite,
+resumable after a crash, human-approval gates, harness-agnostic agent configs).
+The two stack cleanly:
+
+- **Rig** = the *conventions*: skills, agents, CI, a config profile. Lightweight,
+  copy-in, runtime-agnostic.
+- **Smithers** = the *durable engine*: a CLI + `.smithers/` runtime that *runs*
+  long, multi-step agent workflows with checkpoint/resume.
+
+Rig deliberately does **not** bundle Smithers (it's ~70 files + its own deps and
+wants a JS runtime — that would break Rig's lightweight, runtime-agnostic
+promise). Instead, adoption is opt-in:
+
+```bash
+# during onboarding:
+./install.sh --with-smithers <target>          # scaffolds .smithers/ via bunx|npx
+# or directly:
+bunx smithers-orchestrator init --yes          # NB: package is smithers-orchestrator, not smithers
+```
+
+`--with-smithers` needs a JS runtime (`bun` preferred, else `node`/`npx`) and is
+skipped gracefully otherwise. If both are present, onboarding seeds Smithers'
+`repoCommands.test` from your Rig `test.command` so they share one source of
+truth. Smithers' own agent skill and Rig's skills coexist at different layers
+(task procedures vs. driving the orchestration CLI).
+
 ## The project profile
 
 Everything parameterizable is driven by **`.rig/config.json`** in your

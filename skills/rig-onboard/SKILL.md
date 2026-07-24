@@ -138,6 +138,33 @@ requires** so the user can add them. Do not invent secret values. The AI
 review-bot bundle additionally needs a GitHub App token — point at
 `ci/README.md#review-bot-bundle` for the setup.
 
+## 5b. Offer Smithers durable orchestration (optional, gated on consent)
+
+[Smithers](https://smithers.sh) is a **separate, complementary** tool — a
+crash-resistant AI-workflow orchestrator (multi-step runs persisted to SQLite,
+resumable after a crash, human-approval gates). Rig gives you the conventions;
+Smithers gives you a durable engine to *run* the long, multi-step ones. It's
+**heavier** (~70 files under `.smithers/`, its own deps) and needs a JS runtime,
+so it is strictly opt-in — never install it unless the user says yes.
+
+- **Gate:** offer this only if a JS runtime is present (`bun` preferred, else
+  `node`/`npx`). If neither, skip and say so.
+- **On opt-in**, run in the target (or just `install.sh --with-smithers`):
+  ```bash
+  bunx smithers-orchestrator init --yes --no-tutorial      # or: npx … --no-tutorial --no-install
+  ```
+  ⚠️ The package is `smithers-orchestrator`, **not** `smithers`. `init`
+  scaffolds `.smithers/` and (via its default `--skill`) installs a `smithers`
+  skill into the detected coding agent(s) and appends usage guidance to an
+  existing `AGENTS.md`/`CLAUDE.md`. Tell the user `.smithers/` is a real,
+  committable addition to their repo.
+- **Wire them together:** if `.smithers/smithers.config.ts` exists, set its
+  `repoCommands.test` (and `lint`/`coverage` if known) from the Rig profile's
+  `test.command` so both tools share one source of truth.
+- The Smithers skill and Rig skills coexist at different layers — Rig skills are
+  task-level procedures; the Smithers skill teaches the agent to drive the
+  Smithers CLI. No conflict.
+
 ## 6. Verify and summarize
 
 - Sanity-check: `.rig/config.json` parses; every copied skill's config

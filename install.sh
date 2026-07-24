@@ -9,7 +9,13 @@
 # agent-driven `rig-onboard` skill.
 #
 # Usage:
-#   ./install.sh [--target <a,b>] <target-project-dir> [skill ...]
+#   ./install.sh [--target <a,b>] [--with-smithers] <target-project-dir> [skill ...]
+#
+# --with-smithers  Also scaffold Smithers (smithers.sh), a complementary
+#                  crash-resistant AI-workflow orchestrator, via
+#                  `bunx|npx smithers-orchestrator init`. Opt-in; needs a JS
+#                  runtime (bun preferred, else node/npx). See README "Pairs
+#                  with Smithers".
 #
 # Targets (adapters):
 #   claude-code  -> .claude/skills/<name>/, .claude/agents/, .claude/scripts/
@@ -28,12 +34,14 @@ set -euo pipefail
 RIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 TARGETS_CSV=""
+WITH_SMITHERS=0
 POSARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGETS_CSV+="${TARGETS_CSV:+,}$2"; shift 2 ;;
     --target=*) TARGETS_CSV+="${TARGETS_CSV:+,}${1#--target=}"; shift ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    --with-smithers) WITH_SMITHERS=1; shift ;;
+    -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
     *) POSARGS+=("$1"); shift ;;
   esac
 done
@@ -200,10 +208,41 @@ done
 echo "Project profile:"
 write_profile
 
+# --- Optional: Smithers durable-orchestration setup --------------------------
+# Smithers (smithers.sh) is a SEPARATE, complementary tool — a crash-resistant
+# AI-workflow orchestrator. Rig = conventions; Smithers = the durable engine.
+# Opt in with --with-smithers; needs a JS runtime (bun preferred, else node/npx).
+maybe_setup_smithers() {
+  [[ "$WITH_SMITHERS" -eq 1 ]] || return 0
+  echo
+  echo "Smithers (durable orchestration, optional):"
+  local runner extra=()
+  if command -v bun >/dev/null 2>&1; then
+    runner="bunx"
+  elif command -v npx >/dev/null 2>&1; then
+    runner="npx"; extra=(--no-install)   # bun install step needs bun; skip on npx
+  else
+    echo "  skip: no JS runtime (bun or node/npx) found — Smithers needs one." >&2
+    return 0
+  fi
+  echo "  runner: $runner  (package: smithers-orchestrator — NOT 'smithers')"
+  ( cd "$TARGET" && "$runner" smithers-orchestrator init --yes --no-tutorial "${extra[@]}" ) \
+    || { echo "  Smithers init did not complete cleanly — see output above." >&2; return 0; }
+  # Cohesion: seed Smithers' repoCommands.test from the Rig profile if both exist.
+  if command -v jq >/dev/null 2>&1 && [[ -f "$TARGET/.rig/config.json" && -f "$TARGET/.smithers/smithers.config.ts" ]]; then
+    local tcmd
+    tcmd=$(jq -r '.test.command // empty' "$TARGET/.rig/config.json")
+    if [[ -n "$tcmd" ]] && ! grep -q "test: \"$tcmd\"" "$TARGET/.smithers/smithers.config.ts"; then
+      echo "  tip: set repoCommands.test = \"$tcmd\" in .smithers/smithers.config.ts to match your Rig profile."
+    fi
+  fi
+}
+maybe_setup_smithers
+
 cat <<EOF
 
 Done. Next:
   1. Edit $TARGET/.rig/config.json for your project (see docs/config.md).
   2. For CI workflows, see $RIG_DIR/ci/README.md (copy + parameterize by hand).
-  3. Or run the 'rig-onboard' skill in your agent for the guided setup.
+  3. Or run the 'rig-onboard' skill in your agent for the guided setup.$( [[ "$WITH_SMITHERS" -eq 1 ]] && printf '\n  4. Smithers scaffolded .smithers/ — try: %s smithers-orchestrator workflow list' "${runner:-bunx}" )
 EOF
