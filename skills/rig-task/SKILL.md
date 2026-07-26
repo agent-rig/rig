@@ -85,6 +85,12 @@ into a stacked integration branch, `--squash` into the trunk; if
 and hands back. `/rig-epic` passes `--auto-merge` per child so each lands on the
 integration branch on its own.
 
+`--spec-cleared` — skip Step 2's blocking pause: run the spec review for its notes
+but do **not** stop for a human to resolve blockers. Use when the caller already
+front-loaded and cleared the spec (e.g. `/rig-epic run`'s front-loaded spec review
+resolved every child's blockers up front), so this child doesn't re-pause on a
+question already answered. Spec review still informs RED/GREEN; it just never gates.
+
 Print the resolved unit + phase as the first output line, e.g.
 `rig-task start: ABC-369 (from branch alice/abc-369-...)` or
 `rig-task start: ad-hoc "add dark mode"`.
@@ -149,7 +155,10 @@ Launch the **architect** and **qa** agents in parallel (names via `agents.*`):
 
 If either flags something that should be fixed before coding, clarify it — and,
 in tracker mode, update the item's description with the clarification and tell
-the user what changed.
+the user what changed. **With `--spec-cleared`** (a caller like `/rig-epic run`
+already front-loaded and resolved the specs), skip this pause: keep the architect
++ qa notes to inform RED/GREEN, but do **not** stop for blockers — proceed
+straight to Step 3.
 
 ## Step 3 — RED: tests first
 
