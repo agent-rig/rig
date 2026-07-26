@@ -1,7 +1,7 @@
 ---
 name: rig-epic
 description: "Plan and run a multi-ticket epic: decompose a feature into parent + child items and stack PRs on a shared integration branch instead of landing each on main. Use when children interleave (one item's runtime contract depends on another's incomplete state) — stacking keeps each child PR reviewable without temporarily breaking main, then squashes to main once. Triggers on: 'epic', 'plan epic', 'plan this as an epic', 'break this into an epic', 'start epic', 'integration branch', 'stack PRs', 'finish epic'."
-argument-hint: "status | plan <FEATURE> | start <PARENT> | next | run | review [<PARENT>] | finish [<PARENT>] [--merge] | prune"
+argument-hint: "status | plan <FEATURE> | start <PARENT> | next | run [--advisor] | review [<PARENT>] | finish [<PARENT>] [--merge] | prune"
 ---
 
 # rig-epic — integration-branch workflow
@@ -145,13 +145,14 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
    (Fallback for a child run *without* `--auto-merge`: fast-forward the branch over
    its tip — `git push origin origin/<previous-child-branch>:refs/heads/<integration-branch>`,
    which auto-closes that PR as MERGED. Safe to re-run.)
-4. **Run `/rig-task <CHILD> --base <integration-branch> --auto-merge`** — `--base`
-   makes the child's worktree branch from, and its PR target, the integration
-   branch; `--auto-merge` makes the child enable `gh pr merge --rebase --auto` on
+4. **Run `/rig-task <CHILD> --base <integration-branch> --auto-merge`** (add
+   `--spec-cleared` when `run`'s front-loaded spec review already cleared the
+   specs) — `--base` makes the child's worktree branch from, and its PR target, the
+   integration branch; `--auto-merge` makes the child enable `gh pr merge --squash --auto` on
    its own PR once its review is clean, so **CI lands it into the integration
-   branch** (the integration branch isn't the protected trunk, so a rebase
-   auto-merge is fine here). Run one-shot (start→finish); it returns a single
-   outcome string for the merge gate.
+   branch** (always **squash** — don't rebase-merge; many repos disallow it. If the
+   integration branch has no required checks, the child merges directly). Run
+   one-shot (start→finish); it returns a single outcome string for the merge gate.
 5. **Merge gate — only `clean` is merge-green:**
    - `clean` → the child enabled auto-merge, so its PR lands when CI passes.
      **Wait** for it: poll `gh pr view <N> --json state` (~60s, up to ~30min)
@@ -165,12 +166,37 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
 
 `next` does exactly one child. Use `run` for the loop.
 
-## `run`
+## `run [--advisor]`
 
-Loop `next` until no unblocked child remains:
+**Front-loaded spec review — once, before the loop.** Review **all** children's
+specs together, up front, instead of discovering blockers one child at a time
+mid-run. A child that pauses on a spec question stalls the whole epic (and under
+parallel or durable execution, a paused child can fail the batch outright), so
+resolve the specs before any child starts coding:
+1. Fan out `agents.architect` + `agents.qa` over **every** child's spec, read
+   against the integration branch; each returns its blockers.
+2. Consolidate into one blocker list and resolve it **once** — clarify in the
+   tracker, or decide with the user. This is the epic's single spec decision point.
+3. Then run each child with its own spec gate **pre-cleared**:
+   `/rig-task <CHILD> --base <integration-branch> --auto-merge --spec-cleared`, so
+   no child re-pauses on a question already answered.
+
+This is the *pre-coding* spec pass; the combined-diff `review` (below) is the
+*post-merge* code pass — different gates.
+
+**`--advisor` (unattended).** Decide that front-loaded gate with an **advisor
+pass** instead of a human: a delegated `agents.architect` review reads the
+architect + QA specs and either **proceeds** with synthesized per-child direction
+(handed verbatim to each child's coder), or **halts** with a blocked report naming
+what a human must decide. No human waits, so the epic runs hands-off to child PRs;
+a genuine blocker still stops it rather than fanning out on a bad spec. (The paired
+Smithers durable workflow implements this with a cheap model — the "Fable
+advisor" — so kicked-off epics never park at the gate.)
+
+Then loop `next` until no unblocked child remains:
 ```
 while an unblocked child exists:
-  run /rig-epic next
+  run /rig-epic next            # children run --spec-cleared (spec was front-loaded)
   if it stopped without merging (outcome ≠ clean) → stop, hand back
   else → re-evaluate unblocked children
 ```
