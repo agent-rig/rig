@@ -67,6 +67,34 @@ project. Skills read it at runtime — they never hardcode your specifics. See
 the machine-readable schema, and `rig.config.example.json` for a filled-in
 reference (the origin project's own values).
 
+## Pairs with Smithers (optional)
+
+[Smithers](https://smithers.sh) is a **separate, complementary** tool — a
+crash-resistant AI-workflow orchestrator (multi-step runs persisted to SQLite,
+resumable after a crash, human-approval gates, harness-agnostic agent configs).
+The two stack cleanly:
+
+- **Rig** = the *conventions*: skills, agents, CI, a config profile. Lightweight,
+  copy-in, runtime-agnostic.
+- **Smithers** = the *durable engine*: a CLI + `.smithers/` runtime that *runs*
+  long, multi-step agent workflows with checkpoint/resume.
+
+Rig deliberately does **not** bundle or auto-install Smithers (it wants its own
+JS-runtime deps — that would break Rig's lightweight, runtime-agnostic promise).
+Adoption is a manual, opt-in step for projects that want the durable workflow
+layer:
+
+```bash
+bunx smithers-orchestrator init --yes    # NB: the package is smithers-orchestrator, not smithers
+```
+
+Rig ships starter workflows under [`smithers/`](smithers/) (durable `rig-task`
+and `rig-epic` runs, plus example agent configs) that you can copy into your
+`.smithers/` once it's scaffolded. Set Smithers' `repoCommands.test` to match
+your Rig `test.command` so the two share one source of truth. Smithers' own
+agent skill and Rig's skills coexist at different layers (task procedures vs.
+driving the orchestration CLI).
+
 ## Design principles
 
 - **Config over forking.** A parameterizable skill reads `.rig/config.json`
