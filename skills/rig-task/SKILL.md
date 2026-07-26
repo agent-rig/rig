@@ -76,14 +76,15 @@ a cloud auto-fix workflow is enabled (see Step 6).
 of `vcs.baseRef`. A caller like `/rig-epic` passes the integration branch here so
 the child stacks on it rather than the trunk.
 
-`--auto-merge` — once the pre-PR self-review (Step 4.5) is clean, enable
-`gh pr merge <N> --auto` so the PR lands **when CI / required checks pass — CI is
-the merge gate, not a human**. Method follows the base: `--rebase --delete-branch`
-into a stacked integration branch, `--squash` into the trunk; if
-`vcs.protectedBranchMergeQueue` is true, pass `--auto` with **no** method flag
-(the queue decides). Without this flag the skill never merges — it opens the PR
-and hands back. `/rig-epic` passes `--auto-merge` per child so each lands on the
-integration branch on its own.
+`--auto-merge` — once the pre-PR self-review (Step 4.5) is clean, **squash-merge**
+the PR: `gh pr merge <N> --squash --delete-branch --auto` so it lands **when CI /
+required checks pass — CI is the merge gate, not a human**. **Always squash** —
+into a stacked integration branch *or* the trunk (don't rebase-merge; many repos
+disallow it). If there are **no** required checks (`--auto` can't arm / the PR is
+already mergeable), merge directly (drop `--auto`). If `vcs.protectedBranchMergeQueue`
+is true, pass `--auto` with **no** method flag (the queue decides). Without this
+flag the skill never merges — it opens the PR and hands back. `/rig-epic` passes
+`--auto-merge` per child so each lands on the integration branch on its own.
 
 `--spec-cleared` — skip Step 2's blocking pause: run the spec review for its notes
 but do **not** stop for a human to resolve blockers. Use when the caller already
@@ -244,9 +245,9 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
 
 **Merge behavior.** Without `--auto-merge`, **do NOT `gh pr merge`** — open the PR
 and hand back (the human, `/rig-sprint`, or `/rig-epic` decides). **With
-`--auto-merge`**, the self-review is clean, so enable `gh pr merge <N> --auto` now
-(method per the `--auto-merge` flag doc above); **CI/required checks are the merge
-gate** — the PR lands on its own when they pass. Either way, don't hand-add PR
+`--auto-merge`**, the self-review is clean, so enable `gh pr merge <N> --squash --auto`
+now (always squash — see the `--auto-merge` flag doc above); **CI/required checks are
+the merge gate** — the PR lands on its own when they pass. Either way, don't hand-add PR
 labels if the project ships a PR-labeler workflow — it applies them.
 
 ---

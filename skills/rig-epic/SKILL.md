@@ -148,11 +148,11 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
 4. **Run `/rig-task <CHILD> --base <integration-branch> --auto-merge`** (add
    `--spec-cleared` when `run`'s front-loaded spec review already cleared the
    specs) — `--base` makes the child's worktree branch from, and its PR target, the
-   integration branch; `--auto-merge` makes the child enable `gh pr merge --rebase --auto` on
+   integration branch; `--auto-merge` makes the child enable `gh pr merge --squash --auto` on
    its own PR once its review is clean, so **CI lands it into the integration
-   branch** (the integration branch isn't the protected trunk, so a rebase
-   auto-merge is fine here). Run one-shot (start→finish); it returns a single
-   outcome string for the merge gate.
+   branch** (always **squash** — don't rebase-merge; many repos disallow it. If the
+   integration branch has no required checks, the child merges directly). Run
+   one-shot (start→finish); it returns a single outcome string for the merge gate.
 5. **Merge gate — only `clean` is merge-green:**
    - `clean` → the child enabled auto-merge, so its PR lands when CI passes.
      **Wait** for it: poll `gh pr view <N> --json state` (~60s, up to ~30min)
