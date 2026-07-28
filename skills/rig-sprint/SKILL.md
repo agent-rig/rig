@@ -24,6 +24,7 @@ Reads `.rig/config.json` (missing keys → defaults):
 | `tracker.project` | — | Linear project for list/create. |
 | `tracker.ticketPrefix` | — | Recognize ticket IDs in `$ARGUMENTS`. |
 | `tracker.githubIntegration` | `false` | If true, GitHub drives PR/merge transitions; each `/rig-task` sets only the start-of-work In Progress. |
+| `tracker.shapeLabels.sprint` | `sprint` | GitHub-only label applied to each item at creation so a board/dispatcher can pick up sprint items. Omit `shapeLabels` to skip. |
 | `vcs.baseRef` | `origin/main` | Base each ticket's branch is cut from. |
 | `vcs.branchConvention` | `{user}/{ticket}-{slug}` | New-branch template. |
 | `vcs.defaultBranch` | `main` | Trunk each PR targets. |
@@ -80,9 +81,13 @@ the trunk directly — no parent epic, no integration branch.
      Criteria, dependency references). **Set `blockedBy` for every real
      dependency** — not optional; the phaser relies on it to group
      correctly.
-   - **GitHub:** `gh issue create` per item with the same title/body;
-     encode dependencies as "Blocked by #N" in the body (GitHub has no
-     native blockedBy).
+   - **GitHub:** `gh issue create` per item with the same title/body, adding
+     the sprint shape label — `--label "<L>"` where `<L>` =
+     `tracker.shapeLabels.sprint` (default `sprint`) — so a Project board /
+     dispatcher can pick up sprint items directly (skip the label if
+     `tracker.shapeLabels` is absent; ensure it exists first with
+     `gh label create "<L>" --force`). Encode dependencies as "Blocked by #N"
+     in the body (GitHub has no native blockedBy).
    - **Ad-hoc (`none`):** don't create anything — just produce the
      numbered task list with an explicit "depends on #k" note per item.
 5. **Show the user a summary table** of what was created (or the task

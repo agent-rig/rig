@@ -20,6 +20,9 @@ Reads `.rig/config.json` (defaults in parentheses):
   items are stored. `none` → items live only in the epic **state file** (below);
   no tracker calls.
 - `tracker.team` / `tracker.project` / `tracker.ticketPrefix` / `tracker.githubIntegration`.
+- `tracker.shapeLabels.epic` (`epic`) — GitHub-only label put on the parent at
+  creation so a Project board / dispatcher can distinguish the epic from child
+  `feature` issues. Omit `shapeLabels` to skip.
 - `vcs.baseRef` (`origin/main`), `vcs.defaultBranch` (`main`),
   `vcs.protectedBranchMergeQueue` (`false`).
 - `sourceScope[0]` — where to explore during `plan`.
@@ -88,6 +91,13 @@ no integration branch.
    - `tracker: linear`/`github` → create the parent item (team/project from
      config); description covers Overview, why-it's-an-epic, and the planned
      children.
+   - **GitHub only — mark the shape.** After creating the parent, apply the epic
+     shape label so a Project board / dispatcher can tell the parent apart from
+     the child `feature` issues: `gh issue edit <parent#> --add-label "<L>"`
+     where `<L>` = `tracker.shapeLabels.epic` (default `epic`). Ensure the label
+     exists first (`gh label create "<L>" --force`). Skip entirely if
+     `tracker.shapeLabels` is absent. (Linear needs no label — native parent
+     grouping already distinguishes the epic.)
    - `tracker: none` → the parent is a slug + title recorded in the state file only.
 4. **Create each child** with its dependency edges.
    - Small enough for one agent session (1–3 files); concrete, testable

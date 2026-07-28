@@ -72,7 +72,16 @@
         "project": { "type": "string", "description": "Linear project name (e.g. \"Acme\")." },
         "ticketPrefix": { "type": "string", "description": "Ticket identifier prefix, e.g. \"INC-\". Used to detect ticket IDs in branch names and PR titles." },
         "labelMapFile": { "type": "string", "default": ".claude/label-mapping.md", "description": "Path to the PR/tracker label source-of-truth doc." },
-        "githubIntegration": { "type": "boolean", "default": false, "description": "If true, GitHub drives PR/merge transitions (In Progress on PR-open, In Review, Done on merge); skills set only the start-of-work In Progress, which GitHub can't observe before a PR exists." }
+        "githubIntegration": { "type": "boolean", "default": false, "description": "If true, GitHub drives PR/merge transitions (In Progress on PR-open, In Review, Done on merge); skills set only the start-of-work In Progress, which GitHub can't observe before a PR exists." },
+        "shapeLabels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "GitHub-only: labels applied at CREATION to mark a work item's shape, so a Project board / autonomous dispatcher can tell shapes apart (e.g. pick up only epic/sprint items from a Todo column; child feature issues are driven by their epic, not dispatched directly). rig-epic plan labels the parent with shapeLabels.epic; rig-sprint plan labels each item with shapeLabels.sprint. Linear needs no equivalent — its native parent/project grouping already distinguishes shapes. Omit the whole object to apply no shape labels.",
+          "properties": {
+            "epic": { "type": "string", "default": "epic", "description": "Label put on the epic parent issue by rig-epic plan (tracker: github)." },
+            "sprint": { "type": "string", "default": "sprint", "description": "Label put on each independent sprint item by rig-sprint plan (tracker: github)." }
+          }
+        }
       }
     },
     "review": {

@@ -26,7 +26,8 @@
     "project": "Acme",
     "ticketPrefix": "ACME-",
     "labelMapFile": ".claude/label-mapping.md",
-    "githubIntegration": true
+    "githubIntegration": true,
+    "shapeLabels": { "epic": "epic", "sprint": "sprint" }
   },
   "review": {
     "patternsFile": ".claude/REVIEWER.md",
