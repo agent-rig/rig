@@ -333,7 +333,7 @@ export function EpicFlow({ input, ctx, tables, childTables }: EpicFlowProps) {
       {doPlan ? (
         <Sequence>
           <Task id="plan" agent={ROLE.architect} output={tables.plan} deps={{ "epic-preflight": tables.epicPreflight }}>
-            {(d) => {
+            {(d: any) => {
               const p = d["epic-preflight"];
               const namedParent = (input.parent || p.parent || "").trim();
               return `You are executing the \`plan\` step of the /rig-epic skill. Read ${SKILL} and \`.rig/config.json\` first.
@@ -354,7 +354,7 @@ Return: parent (id or slug), parentTitle, integrationBranch, whyEpic, and childr
             }}
           </Task>
           <Task id="start" agent={ROLE.coord} output={tables.start} deps={{ plan: tables.plan, "epic-preflight": tables.epicPreflight }}>
-            {(d) => {
+            {(d: any) => {
               const pl = d["plan"];
               const p = d["epic-preflight"];
               return `You are executing the \`start\` step of the /rig-epic skill (${SKILL}). Print the intent banner first.
@@ -474,7 +474,7 @@ Return JSON: {"proceed": <bool>, "direction": "<per-child steering, or the block
                     idPrefix={`child-${child.id}-`}
                   />
                   <Task id={`merge-${child.id}`} agent={ROLE.coord} output={tables.merge} deps={{ [`child-${child.id}-result`]: tables.childRun }}>
-                    {(d) => {
+                    {(d: any) => {
                       const run = d[`child-${child.id}-result`];
                       return `You are the merge gate for epic child ${child.id} (${SKILL}). ${cd}
 
@@ -528,7 +528,7 @@ Per-PR review already ran; catch interactions only visible at the merged shape (
           ) : null}
           {consolidated && !consolidated.clean && reviewApproved ? (
             <Task id="review-fix" agent={ROLE.coder} output={tables.reviewFix} deps={{ "review-consolidate": tables.reviewConsolidated }}>
-              {(d) => `Apply the combined-diff review fixes on ${integrationBranch} (/rig-review fix --source local, ${SKILL}). ${cd} Fix the P0/P1 items, keep tests green, commit, and \`git push origin ${integrationBranch}\`.
+              {(d: any) => `Apply the combined-diff review fixes on ${integrationBranch} (/rig-review fix --source local, ${SKILL}). ${cd} Fix the P0/P1 items, keep tests green, commit, and \`git push origin ${integrationBranch}\`.
 
 Findings:
 ${d["review-consolidate"].report}
@@ -555,7 +555,7 @@ Return a summary of what you changed.`}
       {/* ── finish: squash the integration branch into one PR to the trunk ── */}
       {finishReady ? (
         <Task id="finish-squash" agent={ROLE.coord} output={tables.squashPr} deps={{ "epic-preflight": tables.epicPreflight }}>
-          {(d) => {
+          {(d: any) => {
             const p = d["epic-preflight"];
             return `You are executing \`finish\` of /rig-epic (${SKILL}). ${cd} Print the intent banner first. The review gate is a HARD precondition and has passed.
 

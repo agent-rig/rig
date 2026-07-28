@@ -1,0 +1,20 @@
+{
+  "//": "Dev-only: typechecks the vendored smithers/ workflow templates against a pinned smithers-orchestrator. Mirrors the tsconfig `smithers-orchestrator init` scaffolds, so the templates are checked the same way they run. Not vendored into consumers.",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "jsxImportSource": "smithers-orchestrator",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "//include": "ui/ is intentionally excluded: those templates are thin views over smithers-orchestrator/gateway-ui, and following the import typechecks the dependency's own .tsx rendering internals (dagre/xyflow/mermaid), not rig's code. The workflow graph logic is what we gate.",
+  "include": ["smithers/workflows/**/*", "smithers/agents.example.ts", "smithers/agents.ts", "smithers/agents/**/*"]
+}

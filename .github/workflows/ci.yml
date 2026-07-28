@@ -1,0 +1,46 @@
+# Rig's own CI — gates the kit's source-of-truth content before it ships to
+# consumers. This is NOT one of the ci/ workflow *templates* rig hands out; it
+# guards this repo itself. Two jobs:
+#   - typecheck: compile the smithers/ workflow templates against a pinned
+#     smithers-orchestrator, so a broken .tsx can't be vendored silently.
+#     Skips on branches without a smithers/ layer (e.g. main pre-integration),
+#     so this one workflow file is correct on every branch.
+#   - test: run the scripts/ unit suite (scope-reviewer, etc.).
+name: ci
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: typecheck smithers/ templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: typecheck smithers/ templates (skip if absent)
+        run: |
+          if [ -d smithers/workflows ]; then
+            bun run typecheck
+          else
+            echo "No smithers/ workflow layer on this branch — skipping typecheck."
+          fi
+
+  test:
+    name: scripts/ unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun test scripts/
