@@ -9,7 +9,7 @@ import { providers } from "../../agents";
  * TaskFlow — the /rig-task graph as a COMPOSABLE React fragment (no <Workflow>).
  *
  * The same nodes as the standalone rig-task workflow, but authored as a function
- * component so a parent (rig-crank, EpicFlow) can render it INLINE — one graph, one
+ * component so a parent (rig-loop, EpicFlow) can render it INLINE — one graph, one
  * run, native deps, full time-travel — instead of a childRun <Subflow>.
  *
  * Composition contract:
@@ -99,7 +99,7 @@ const nsKey = (ns: string, k: string) => (ns ? `${ns}_${k}` : k);
 
 /**
  * Register TaskFlow's schemas in a createSmithers call, optionally namespaced.
- *   createSmithers({ ...taskSchemas() })            // canonical keys (rig-task, rig-crank)
+ *   createSmithers({ ...taskSchemas() })            // canonical keys (rig-task, rig-loop)
  *   createSmithers({ ...taskSchemas("child") })     // child_preflight, … (rig-epic — no collision)
  */
 export const taskSchemas = (ns = ""): Record<string, any> =>
@@ -369,7 +369,7 @@ Run the /rig-review skill for this unit: walk \`${d[nid("preflight")] ? ".claude
                           then={
                             /* Dep on `setup` only (non-looped → stable id). review-find is a SIBLING
                                LOOPED node; a hard dep on it deadlocks when TaskFlow is nested in an outer
-                               Loop (the crank) — deps match physical ids, and the looped review-find gains
+                               Loop (the repeat) — deps match physical ids, and the looped review-find gains
                                a suffix the bare dep key can't match. The enclosing Branch already orders
                                this after review-find; findings come from the suffix-lenient ctx.latest. */
                             <Task id={nid("review-fix")} agent={ROLE.coder} output={tables.reviewFix} deps={{ [nid("setup")]: tables.setup }}>

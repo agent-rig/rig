@@ -18,7 +18,7 @@ Smithers run *executes*. The graph surface can **enforce** what prose can only
 | `workflows/flows/epic-flow.tsx` | **`EpicFlow`** — the integration-branch epic graph as a fragment: preflight → plan → front-loaded Arch/QA spec (composed `<GatherAndSynthesize>`) → **spec gate** → per-child **inline `TaskFlow`** lanes → combined-diff review → finish (squash PR). `epicSchemas(ns?)` / `epicBag(...)`. |
 | `workflows/rig-task.tsx` | Thin `<Workflow>` wrapper over `TaskFlow` (the standalone `/rig-task`). |
 | `workflows/rig-epic.tsx` | Thin `<Workflow>` wrapper over `EpicFlow` (the standalone `/rig-epic`). |
-| `workflows/rig-crank.tsx` | **Autonomous build loop** (no skill counterpart): advisor-picks the next ready ticket from a scope, classifies epic-vs-task, composes `EpicFlow`/`TaskFlow` **inline**, verifies with an evidence-based **risk-probe gate**, lands, and loops (`continueAsNewEvery` for longevity) until the backlog is dry. |
+| `workflows/rig-loop.tsx` | **Autonomous build loop** (no skill counterpart): advisor-picks the next ready ticket from a scope, classifies epic-vs-task, composes `EpicFlow`/`TaskFlow` **inline**, verifies with an evidence-based **risk-probe gate**, lands, and loops (`continueAsNewEvery` for longevity) until the backlog is dry. |
 | `workflows/rig-delegation-spike.tsx` | **Spike / evaluation** — points Smithers' off-the-shelf `DelegationChain` at one ask, to compare the delegation suite against the hand-built rig loop. Reference, not a canonical workflow. |
 | `ui/rig-epic.tsx`, `ui/rig-task.tsx` | The `<UI entry>` dashboards (`smithers ui <runId>`). |
 | `agents.example.ts` | **Reference only** — a machine-generated `agents.ts`. See "Consuming project" below. |
@@ -28,7 +28,7 @@ Smithers run *executes*. The graph surface can **enforce** what prose can only
 `rig-task`/`rig-epic` used to be monolithic workflows that fanned children out
 via childRun `<Subflow>`. That boundary was opaque (the monitor couldn't see into
 children) and a paused child could fault the whole parent. The graph is now split
-into **fragments** (`flows/*.tsx`) that a parent renders **inline**: `rig-crank`
+into **fragments** (`flows/*.tsx`) that a parent renders **inline**: `rig-loop`
 composes `TaskFlow`/`EpicFlow`, and `EpicFlow` composes a `TaskFlow` per child —
 all in **one run**, with native cross-node deps and full time-travel, no childRun.
 The seams: a `tables` bag (so a fragment never assumes table *names* in the active
