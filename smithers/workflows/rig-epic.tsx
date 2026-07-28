@@ -21,6 +21,13 @@ const { Workflow, smithers, outputs } = createSmithers({
   ...taskSchemas("child"),
 });
 
+// `outputs` is the dynamic schema registry. epicSchemas()/taskSchemas() register
+// their tables typed as Record<string, any>, so spread-only keys (childRun,
+// epicResult) exist at runtime but aren't statically visible on `outputs`. Read
+// them through the registry type — exactly as epicBag()/taskBag() already type
+// their `outputs` parameter.
+const reg = outputs as Record<string, any>;
+
 export default smithers(
   (ctx) => (
     <Workflow name="rig-epic">
@@ -29,9 +36,9 @@ export default smithers(
         input={ctx.input}
         ctx={ctx}
         tables={epicBag(outputs)}
-        childTables={taskBag(outputs, outputs.childRun, "child")}
+        childTables={taskBag(outputs, reg.childRun, "child")}
       />
     </Workflow>
   ),
-  { output: outputs.epicResult },
+  { output: reg.epicResult },
 );

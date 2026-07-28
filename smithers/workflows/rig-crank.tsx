@@ -61,7 +61,6 @@ const { Workflow, Sequence, Parallel, Task, Loop, Branch, smithers, outputs } = 
   probe: z.object({ lens: z.string(), riskFound: z.boolean(), evidence: z.string() }), // DeriskLoop-pattern risk probes
   verify: z.object({ green: z.boolean(), kind: z.string(), evidence: z.string() }), // kind: unit | e2e | risk | infra
   land: z.object({ ticketId: z.string(), merged: z.boolean(), detail: z.string() }),
-  result: resultSchema,
 });
 
 export default smithers((ctx) => {
@@ -69,7 +68,7 @@ export default smithers((ctx) => {
   const seed = ctx.input.built.join(", ") || "(none)";
 
   const pick = ctx.latest(outputs.pick, "pick");
-  const backlogDry = Boolean(pick) && (pick.ready === false || (pick.ticketId ?? "") === "");
+  const backlogDry = Boolean(pick && (pick.ready === false || (pick.ticketId ?? "") === ""));
   const verify = ctx.latest(outputs.verify, "verify");
   const verifyGreen = verify?.green === true;
 
