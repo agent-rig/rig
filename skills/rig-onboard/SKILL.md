@@ -135,8 +135,9 @@ If the user wants CI, follow `RIG_DIR/ci/README.md`: copy the chosen workflow
 files into `<target>/.github/workflows/`, substitute the parameters from the
 profile, and **print the full list of GitHub secrets/vars each workflow
 requires** so the user can add them. Do not invent secret values. The AI
-review-bot bundle additionally needs a GitHub App token — point at
-`ci/README.md#review-bot-bundle` for the setup.
+review-bot bundle additionally needs a GitHub App token — do the copy-and-wire
+yourself, then hand the human `docs/auto-fix-app.md` (the click-by-click App +
+secrets setup you can't do for them). See `ci/README.md#review-bot-bundle`.
 
 ## 6. Verify and summarize
 

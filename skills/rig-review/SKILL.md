@@ -156,6 +156,11 @@ Drives whatever bot `review.bot` names — mechanics are identical; only the
 author login and re-trigger phrase differ. Set `REPO="$(project.repo)"` and
 `RETRIGGER="$(review.botRetrigger)"` up front.
 
+> **Headless in CI.** This same `fix` loop can run in GitHub Actions on each
+> posted review (out of any local session) via `ci/workflows/auto-review-fix.yml`
+> — one round per invocation, re-fired by the bot's re-review. Setup:
+> `ci/README.md#review-bot-bundle` + `docs/auto-fix-app.md`.
+
 **Identifying the bot.** Match the author with a case-insensitive regex on the
 login, not an exact string — most bots post under more than one identity (a
 `...-connector` for reviews, a `...[bot]` for inline threads); exact match
