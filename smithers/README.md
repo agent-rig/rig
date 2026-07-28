@@ -7,8 +7,8 @@ Smithers run *executes*. The graph surface can **enforce** what prose can only
 **instruct**.
 
 > **Status: incubating.** Tracked by [agent-rig/rig#12](https://github.com/agent-rig/rig/issues/12).
-> These files were seeded from a working trial; `install.sh` does **not** vendor
-> them yet, and the parity contract below is not yet automated.
+> `install.sh --smithers` vendors this pack into `<target>/.smithers/`; the
+> parity contract below is not yet automated.
 
 ## Contents
 
@@ -88,6 +88,6 @@ source of truth; the skill prose mirrors it as guidance.
 
 ## TODO (#12)
 
-- [ ] `install.sh`: add a `smithers` target adapter vendoring `smithers/{workflows,ui}` → `<target>/.smithers/{workflows,ui}`.
-- [ ] Decide handling of `agents.ts` / `smithers.config.ts` on install (delegate to `smithers init`, or ship a template).
+- [x] `install.sh --smithers` vendors `smithers/{workflows,ui}` + `agents.example.ts` → `<target>/.smithers/` (no-clobber).
+- [x] `agents.ts` handling: delegated to `smithers init` / `smithers agents add`; the installer ships `agents.example.ts` only (never `agents.ts`). `smithers.config.ts` comes from `smithers init`.
 - [ ] Automate/verify the parity contract.
