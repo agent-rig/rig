@@ -408,9 +408,13 @@ Return JSON: {"proceed": <bool>, "direction": "<per-child steering, or the block
               if (merged(child)) {
                 continue; // already merged (state file or a prior lane) — its lane is done
               }
-              if (i > 0 && !merged(children[i - 1])) {
-                break; // previous child not merged yet — stop the chain here
-              }
+              // Serialize each child behind the previous child's merge gate — but
+              // ONLY while that predecessor is still in-flight. Once it has merged,
+              // its lane (including its `merge-<prev>` node) is skipped above via
+              // `continue`, so a `dependsOn: ['merge-<prev>']` would point at an
+              // unmounted node → DEPENDENCY_DEADLOCK at every child boundary (#27).
+              // A merged predecessor means this child is already free to start.
+              const prevUnmerged = i > 0 && !merged(children[i - 1]);
               const prevId = i > 0 ? children[i - 1].id : undefined;
               lanes.push(
                 <Sequence key={child.id}>
@@ -420,7 +424,7 @@ Return JSON: {"proceed": <bool>, "direction": "<per-child steering, or the block
                     input={{ target: child.id, phase: "both", base: integrationBranch, autoMerge: true, specGate: false, specNotes: direction }}
                     output={outputs.childRun}
                     retries={0}
-                    dependsOn={prevId ? [`merge-${prevId}`] : []}
+                    dependsOn={prevUnmerged ? [`merge-${prevId}`] : []}
                   />
                   <Task id={`merge-${child.id}`} agent={ROLE.coord} output={outputs.merge} deps={{ [`child-${child.id}`]: outputs.childRun }}>
                     {(d) => {
