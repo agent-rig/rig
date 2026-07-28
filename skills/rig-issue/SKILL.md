@@ -43,6 +43,12 @@ the Linear and GitHub form — use the one matching `tracker.provider`.
   `tracker.project`, `team` = `tracker.team`, `limit: 100`.
 - **GitHub:** `gh issue list --limit 100 --json number,title,state,labels`
   (add `--repo <org/repo>` from `project.repo` if not in-repo).
+  - **If `tracker.board` is configured, prefer the tracker adapter** so you get
+    the real board columns (Status), which `gh issue list` can't see: run
+    `<TRACKER> select --limit 100` (and `--status <col>` / `--dispatchable` to
+    filter), where `<TRACKER>` = `.rig/rig-tracker` if executable else
+    `<RIG_DIR>/scripts/rig-tracker.sh`. It returns `{number,title,url,status,labels,…}`
+    JSON. See [`docs/tracker-adapter.md`](../../docs/tracker-adapter.md).
 
 Display results grouped by status (Backlog, Todo, In Progress, In
 Review, Done — or GitHub's open/closed with labels). If the result is
@@ -95,6 +101,10 @@ Otherwise, map the requested status:
 - **GitHub:** GitHub Issues have only open/closed —
   `gh issue close`/`gh issue reopen`, and reflect finer status via
   labels/project fields if the repo uses them.
+  - **If `tracker.board` is configured, move the board column via the adapter**
+    (`gh issue edit` can't touch a ProjectV2 Status field): run
+    `<TRACKER> set-status <number> "<column>"` (resolver as in `board` above).
+    Still `close`/`reopen` the underlying issue for the open/closed transition.
 
 ### `edit <id>`
 

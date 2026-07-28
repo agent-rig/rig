@@ -81,6 +81,28 @@
             "epic": { "type": "string", "default": "epic", "description": "Label put on the epic parent issue by rig-epic plan (tracker: github)." },
             "sprint": { "type": "string", "default": "sprint", "description": "Label put on each independent sprint item by rig-sprint plan (tracker: github)." }
           }
+        },
+        "board": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "GitHub Projects v2 board identity, consumed by the rig-tracker adapter (scripts/rig-tracker.sh) for select --status / set-status / add-to-project. IDENTITY ONLY — selection/movement POLICY lives in the adapter, which a project overrides at .rig/rig-tracker. Omit if you don't drive a board.",
+          "properties": {
+            "owner": { "type": "string", "description": "GitHub org/user that owns the Project (the <owner> in github.com/orgs/<owner>/projects/<n>)." },
+            "projectNumber": { "type": "integer", "description": "ProjectV2 number (the <n> in /projects/<n>)." },
+            "statusField": { "type": "string", "default": "Status", "description": "Name of the single-select field that represents the board column." },
+            "statusOptions": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "Map of rig's logical statuses to the board's display column names. The adapter resolves the underlying ProjectV2 option IDs at runtime, so put human names here — not node IDs.",
+              "properties": {
+                "todo": { "type": "string", "description": "Column an item sits in while dispatchable/unstarted (e.g. \"Todo\"). Used by select --dispatchable." },
+                "inProgress": { "type": "string", "description": "Column for work in progress (e.g. \"In Progress\")." },
+                "inReview": { "type": "string", "description": "Column for work in review (e.g. \"In Review\")." },
+                "done": { "type": "string", "description": "Terminal column (e.g. \"Done\")." }
+              }
+            },
+            "closingKeyword": { "type": "string", "default": "Closes", "description": "PR-body closing keyword the adapter's link-pr writes (\"Closes\" | \"Fixes\" | \"Resolves\") — links the issue and moves the board on merge via GitHub's built-in automation." }
+          }
         }
       }
     },
