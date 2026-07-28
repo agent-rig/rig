@@ -3,6 +3,8 @@
 # guards this repo itself. Two jobs:
 #   - typecheck: compile the smithers/ workflow templates against a pinned
 #     smithers-orchestrator, so a broken .tsx can't be vendored silently.
+#     Skips on branches without a smithers/ layer (e.g. main pre-integration),
+#     so this one workflow file is correct on every branch.
 #   - test: run the scripts/ unit suite (scope-reviewer, etc.).
 name: ci
 
@@ -24,7 +26,13 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - run: bun run typecheck
+      - name: typecheck smithers/ templates (skip if absent)
+        run: |
+          if [ -d smithers/workflows ]; then
+            bun run typecheck
+          else
+            echo "No smithers/ workflow layer on this branch — skipping typecheck."
+          fi
 
   test:
     name: scripts/ unit tests
