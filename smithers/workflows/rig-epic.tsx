@@ -10,7 +10,7 @@ import { taskSchemas, taskBag } from "./flows/task-flow";
 
 /**
  * Standalone rig-epic = the EpicFlow fragment under its own <Workflow>. The graph
- * lives in flows/epic-flow.tsx so rig-crank can compose it INLINE (one run, native
+ * lives in flows/epic-flow.tsx so rig-loop can compose it INLINE (one run, native
  * deps, no childRun). Register EpicFlow's own tables + the child TaskFlow tables
  * (namespaced "child_" — no collision with epic's own reviewFix/etc.).
  */

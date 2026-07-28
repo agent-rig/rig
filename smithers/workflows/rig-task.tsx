@@ -9,7 +9,7 @@ import { TaskFlow, taskSchemas, taskBag, taskInputSchema, taskResultSchema } fro
 
 /**
  * Standalone rig-task = the TaskFlow fragment under its own <Workflow>. The graph
- * lives in flows/task-flow.tsx so rig-crank / EpicFlow can render it INLINE (one run,
+ * lives in flows/task-flow.tsx so rig-loop / EpicFlow can render it INLINE (one run,
  * native deps, full time-travel) instead of a childRun <Subflow>. Registering
  * TASK_TABLES here is what makes `outputs` carry the fragment's tables.
  */

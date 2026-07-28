@@ -12,10 +12,10 @@ import { TaskFlow } from "./task-flow";
  * Same contract as TaskFlow: `tables` is a bag mapping each epic table name to the
  * composer's OutputTarget (build with `epicBag(outputs, ns?)`, register with
  * `epicSchemas(ns?)`); `childTables` is the task bag its inline child TaskFlows write to
- * (build with `taskBag(outputs, tables.childRun, "child")`). Composed inline by rig-crank
+ * (build with `taskBag(outputs, tables.childRun, "child")`). Composed inline by rig-loop
  * or run standalone by the thin rig-epic wrapper — one run, native deps, no childRun.
  *
- * EpicFlow keeps literal node ids (it is composed one epic at a time; a crank Loop
+ * EpicFlow keeps literal node ids (it is composed one epic at a time; a rig-loop Loop
  * iteration-scopes across epics), so it takes no idPrefix — but each child TaskFlow is
  * namespaced by `child-<id>-`.
  */
@@ -135,7 +135,7 @@ export const EPIC_TABLES = {
 const EPIC_KEYS = Object.keys(EPIC_TABLES) as (keyof typeof EPIC_TABLES)[];
 const nsKey = (ns: string, k: string) => (ns ? `${ns}_${k}` : k);
 
-/** Register EpicFlow's schemas, optionally namespaced (rig-crank namespaces to avoid its task-branch tables). */
+/** Register EpicFlow's schemas, optionally namespaced (rig-loop namespaces to avoid its task-branch tables). */
 export const epicSchemas = (ns = ""): Record<string, any> =>
   Object.fromEntries(Object.entries(EPIC_TABLES).map(([k, v]) => [nsKey(ns, k), v]));
 

@@ -1,7 +1,7 @@
 // smithers-source: seeded
 // smithers-metadata-version: 1
 // smithers-display-name: rig-delegation-spike — DelegationChain evaluation
-// smithers-description: SPIKE. Points Smithers' off-the-shelf DelegationChain (recursive tiered delegation: refine → decompose → derisk → execute → score) at a single ask, to evaluate whether the suite could replace hand-built rig-crank/rig-epic orchestration. Not wired to the tracker or the integration-branch model — that's the open question.
+// smithers-description: SPIKE. Points Smithers' off-the-shelf DelegationChain (recursive tiered delegation: refine → decompose → derisk → execute → score) at a single ask, to evaluate whether the suite could replace hand-built rig-loop/rig-epic orchestration. Not wired to the tracker or the integration-branch model — that's the open question.
 // smithers-tags: rig, delegation, spike, evaluation
 /** @jsxImportSource smithers-orchestrator */
 import { createSmithers, DelegationChain, delegationSchemas } from "smithers-orchestrator";
@@ -17,7 +17,7 @@ import { providers } from "../agents";
  * derisk probes, dependency-ordered leaf execution with gates + budgets, and scoring —
  * replanning affected subtrees as rows land, without restarting.
  *
- * What we get for free (things we hand-build in rig-crank/rig-epic):
+ * What we get for free (things we hand-build in rig-loop/rig-epic):
  *  - recursive decomposition (rig-epic's plan) + level-by-level fan-out
  *  - per-node backpressure, budgets (maxUsd/maxMinutes → Aspects), scoring
  *  - tiered model routing (strongest-first with fallback) — our ROLE map, generalized

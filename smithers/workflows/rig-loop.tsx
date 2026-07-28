@@ -1,6 +1,6 @@
 // smithers-source: seeded
 // smithers-metadata-version: 1
-// smithers-display-name: rig-crank — autonomous build loop (SKETCH)
+// smithers-display-name: rig-loop — autonomous build loop (SKETCH)
 // smithers-description: Drains a ticket backlog one unit at a time — advisor-picks the next ready ticket, builds it via rig-task, verifies with evidence-based backpressure, lands it, and carries distilled state across generations until the backlog is dry or the budget is spent. First-pass sketch.
 // smithers-tags: rig, autonomous, loop, sketch
 /** @jsxImportSource smithers-orchestrator */
@@ -11,7 +11,7 @@ import { TaskFlow, taskSchemas, taskBag, taskResultSchema } from "./flows/task-f
 import { EpicFlow, epicSchemas, epicBag } from "./flows/epic-flow";
 
 /**
- * rig-crank — an autonomous build loop grounded in Smithers context-engineering:
+ * rig-loop — an autonomous build loop grounded in Smithers context-engineering:
  *   pick → build → verify → land → repeat, until the backlog is dry or the budget's spent.
  *
  * Theses it embodies (from smithers.sh/guides/context-engineering):
@@ -25,7 +25,7 @@ import { EpicFlow, epicSchemas, epicBag } from "./flows/epic-flow";
  *  - Longevity: the Loop's own `continueAsNewEvery` /clears and carries state across generations.
  *
  * Hardening path (native components that replace the hand-rolled bits, once the core proves out):
- *  - <MergeQueue> — serialize the irreversible LAND across concurrent cranks (one merge at a time).
+ *  - <MergeQueue> — serialize the irreversible LAND across concurrent loop iterations (one merge at a time).
  *  - <Saga>/<SagaStep> — compensating rollback if a land half-completes.
  *  - <EscalationChain> — advisor decides autonomously, but escalates to a human on genuine uncertainty
  *    (resolves "must I always drive this myself?" — hands off only the hard calls).
@@ -78,13 +78,13 @@ export default smithers((ctx) => {
   const childTablesForEpic = taskBag(outputs, epicTables.childRun, "child");
 
   return (
-    <Workflow name="rig-crank">
+    <Workflow name="rig-loop">
       {/* Keep the ORCHESTRATOR lean so it can run all day: a hard token ceiling on the whole run;
           children summarize into it rather than dumping diffs/logs. */}
       <Aspects tokenBudget={{ max: 400_000, onExceeded: "skip-remaining" }}>
-        {/* The crank. Stop when the backlog is dry (until), or the safety ceiling (maxIterations);
+        {/* The loop. Stop when the backlog is dry (until), or the safety ceiling (maxIterations);
             /clear and carry loop state every 3 units so context never bloats across a long drain. */}
-        <Loop id="crank" until={backlogDry} maxIterations={ctx.input.maxUnits} onMaxReached="return-last" continueAsNewEvery={3}>
+        <Loop id="loop" until={backlogDry} maxIterations={ctx.input.maxUnits} onMaxReached="return-last" continueAsNewEvery={3}>
           <Sequence>
             {/* 1 · PICK — advisor names the next READY, TOP-LEVEL work item and classifies its SHAPE.
                 Top-level only: children of an epic are drained INSIDE rig-epic, never picked here, or
@@ -105,7 +105,7 @@ export default smithers((ctx) => {
                     /* EPIC — compose EpicFlow INLINE (one run, native deps; no childRun). It front-loads
                        the spec (advisor-gated), stacks each child as an inline TaskFlow, reviews the
                        combined diff, and squashes to the trunk. EpicFlow OWNS its own gate + landing,
-                       so the crank doesn't re-verify/land — self-contained through trunk (merge:true). */
+                       so the loop doesn't re-verify/land — self-contained through trunk (merge:true). */
                     <EpicFlow
                       input={{ phase: "full", feature: "", parent: pick?.ticketId ?? "", merge: true, advisor }}
                       ctx={ctx}
@@ -114,12 +114,12 @@ export default smithers((ctx) => {
                     />
                   }
                   else={
-                    /* TASK — the crank owns the gate: build → e2e verify → land. */
+                    /* TASK — the loop owns the gate: build → e2e verify → land. */
                     <Sequence>
                       {/* 2 · BUILD — TaskFlow composed INLINE (one run, native deps, full time-travel;
                           no childRun Subflow). idPrefix "task-" namespaces its nodes; its terminal
                           summary lands in outputs.taskUnit. phase "both" runs the FULL rig-task incl. the
-                          review-bot (Bugbot) loop, so the unit is bot-clean BEFORE the crank verifies+lands.
+                          review-bot (Bugbot) loop, so the unit is bot-clean BEFORE the loop verifies+lands.
                           spec pre-cleared so it never pauses. */}
                       <TaskFlow
                         input={{ target: pick?.ticketId ?? "", phase: "both", base: "", local: false, autoMerge: false, specGate: false, specNotes: "" }}
@@ -180,7 +180,7 @@ Set green=true ONLY if the unit suite AND e2e pass AND neither probe confirmed a
 
       {/* Terminal report — read the tracker (durable source of truth), don't reconstruct from memory. */}
       <Task id="result" agent={CHEAP} output={outputs.result} deps={{ pick: outputs.pick }}>
-        {() => `The crank has stopped for scope "${ctx.input.scope || "the backlog"}". Report {done, built, note}: done=true if the backlog is dry (no ready tickets remain), false if it stopped on the ceiling/budget. \`built\` = the tickets this run moved to Done (check the tracker + merged PRs). Keep \`note\` to one line.`}
+        {() => `The loop has stopped for scope "${ctx.input.scope || "the backlog"}". Report {done, built, note}: done=true if the backlog is dry (no ready tickets remain), false if it stopped on the ceiling/budget. \`built\` = the tickets this run moved to Done (check the tracker + merged PRs). Keep \`note\` to one line.`}
       </Task>
     </Workflow>
   );
