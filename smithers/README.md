@@ -14,25 +14,44 @@ Smithers run *executes*. The graph surface can **enforce** what prose can only
 
 | File | Role |
 |---|---|
-| `workflows/rig-epic.tsx` | Integration-branch epic: preflight → plan → front-loaded Arch/QA spec → **spec gate** → per-child `rig-task` fan-out (Subflow) → combined-diff review → finish (squash PR). |
-| `workflows/rig-task.tsx` | One unit of work: preflight → setup → spec review → RED → GREEN loop → refactor → review-find/fix loop → PR → review-bot. |
+| `workflows/flows/task-flow.tsx` | **`TaskFlow`** — the one-unit graph (preflight → setup → spec review → RED → GREEN loop → refactor → review-find/fix loop → PR → review-bot) as a **composable React fragment** (no `<Workflow>`). Takes a `tables` bag + `idPrefix`, so it composes *inline* into a parent — one run, native deps, full time-travel, no childRun. Register with `taskSchemas(ns?)` / build the bag with `taskBag(...)`. |
+| `workflows/flows/epic-flow.tsx` | **`EpicFlow`** — the integration-branch epic graph as a fragment: preflight → plan → front-loaded Arch/QA spec (composed `<GatherAndSynthesize>`) → **spec gate** → per-child **inline `TaskFlow`** lanes → combined-diff review → finish (squash PR). `epicSchemas(ns?)` / `epicBag(...)`. |
+| `workflows/rig-task.tsx` | Thin `<Workflow>` wrapper over `TaskFlow` (the standalone `/rig-task`). |
+| `workflows/rig-epic.tsx` | Thin `<Workflow>` wrapper over `EpicFlow` (the standalone `/rig-epic`). |
+| `workflows/rig-crank.tsx` | **Autonomous build loop** (no skill counterpart): advisor-picks the next ready ticket from a scope, classifies epic-vs-task, composes `EpicFlow`/`TaskFlow` **inline**, verifies with an evidence-based **risk-probe gate**, lands, and loops (`continueAsNewEvery` for longevity) until the backlog is dry. |
+| `workflows/rig-delegation-spike.tsx` | **Spike / evaluation** — points Smithers' off-the-shelf `DelegationChain` at one ask, to compare the delegation suite against the hand-built rig loop. Reference, not a canonical workflow. |
 | `ui/rig-epic.tsx`, `ui/rig-task.tsx` | The `<UI entry>` dashboards (`smithers ui <runId>`). |
 | `agents.example.ts` | **Reference only** — a machine-generated `agents.ts`. See "Consuming project" below. |
+
+### Composable fragments (why the split)
+
+`rig-task`/`rig-epic` used to be monolithic workflows that fanned children out
+via childRun `<Subflow>`. That boundary was opaque (the monitor couldn't see into
+children) and a paused child could fault the whole parent. The graph is now split
+into **fragments** (`flows/*.tsx`) that a parent renders **inline**: `rig-crank`
+composes `TaskFlow`/`EpicFlow`, and `EpicFlow` composes a `TaskFlow` per child —
+all in **one run**, with native cross-node deps and full time-travel, no childRun.
+The seams: a `tables` bag (so a fragment never assumes table *names* in the active
+registry — build with `taskBag`/`epicBag`, register with `taskSchemas`/`epicSchemas`,
+optionally namespaced), and an `idPrefix` (so multiple inline instances don't
+collide — `deps` resolve by physical node id).
 
 ## The advisor gate (autonomous arch gate)
 
 Tracked by [agent-rig/rig#13](https://github.com/agent-rig/rig/issues/13).
 
 `rig-epic` takes an `advisor` input flag. By default the front-loaded spec gate
-(`spec-direction`) is a `<HumanTask>` — a human reads the Architect + QA specs,
-types free-form direction, and sets `proceed`. With **`advisor: true`** that same
-node renders as a Fable (`providers.claude`) `<Task>` instead: it reads the specs,
-then either
+is a hand-rolled Arch/QA gather (`<Parallel>`) feeding a `<HumanTask>`
+(`epic-spec-synthesize`) — a human reads the specs, types free-form direction,
+and sets `proceed`. With **`advisor: true`** that whole gather-and-decide is a
+composed **`<GatherAndSynthesize>`** whose synthesizer is Fable
+(`providers.claude`): it reads the Architect + QA specs, then either
 
 - `proceed: true` → synthesizes the per-child `direction` and fans out unattended, or
 - `proceed: false` → the epic **halts with a blocked report** (no human waits).
 
-Same node id + `{ proceed, direction }` schema as the human gate, so everything
+Both paths share the same node ids (`epic-spec-gather-{architect,qa}`,
+`epic-spec-synthesize`) + `{ proceed, direction }` schema, so everything
 downstream is unchanged. This lets parallel epics run to child PRs without
 parking on a human gate. The trunk merge stays human (finish stops at an open PR
 unless `--merge`).
