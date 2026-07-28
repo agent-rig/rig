@@ -1,0 +1,22 @@
+{
+  "name": "rig-dev",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only toolchain for the Rig kit repo (typecheck + tests). NOT vendored into consumer projects — install.sh copies only skills/, agents/, scripts/, smithers/ content.",
+  "scripts": {
+    "prepare-smithers": "bash tooling/prepare-smithers-typecheck.sh",
+    "typecheck": "bun run prepare-smithers && tsc --noEmit -p tsconfig.json",
+    "test": "bun test scripts/",
+    "ci": "bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "smithers-orchestrator": "^0.30.0",
+    "typescript": "^7.0.2",
+    "zod": "^4.4.3"
+  }
+}
