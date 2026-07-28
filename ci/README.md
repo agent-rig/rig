@@ -40,14 +40,20 @@ review bot (e.g. Codex or Claude) posts inline findings, and mirrors the
 
 ### review-bot-bundle setup
 
+**Installing agent (rig):** do the copy-and-wire yourself, then hand the human the App steps — you can't create a GitHub App for them.
+
+1. Copy `ci/workflows/{review-bot-gate,auto-review-fix,pr-review-labels}.yml` → `<repo>/.github/workflows/`, and `scripts/{mint-gh-app-token.sh,check-review-p1.ts,pr-review-labels.ts}` → `<repo>/scripts/`.
+2. Adjust the stack: the templates assume **bun** + default branch **main** — swap `setup-bun`/`bun install` for the project's package manager and fix the `origin/main` refs if the default branch differs.
+3. Set repo variable `REVIEW_BOT_LOGIN` from `review.bot` (e.g. `bugbot` → `cursor[bot]`); the workflow mirrors `review.maxRounds`.
+4. Point the human at **[`docs/auto-fix-app.md`](../docs/auto-fix-app.md)** for the GitHub App + secrets/vars.
+5. Commit the enable marker `.github/auto-review-fix.enabled` on the default branch **last**, once the human confirms the secrets are set.
+
+**The pieces (reference):**
+
 1. **Enable marker.** `auto-review-fix.yml` only runs when `.github/auto-review-fix.enabled` exists on the default branch. Create it to turn the loop on; delete it to turn it off.
-2. **GitHub App (for pushing fixes).** Create a GitHub App with `contents: write` + `pull_requests: write`, install it on the repo, and set:
-   - Variable `AUTO_FIX_APP_ID` = the App's ID
-   - Variable `AUTO_FIX_INSTALLATION_ID` = the installation ID
-   - Secret `AUTO_FIX_APP_PRIVATE_KEY` = the App's PEM private key
-   `mint-gh-app-token.sh` exchanges these for a short-lived installation token so the fix commit is attributed to the App, not a human PAT.
+2. **GitHub App (for pushing fixes).** A least-privilege App mints the token that pushes fixes, so downstream checks re-run (a `GITHUB_TOKEN` push gets its checks suppressed). **Click-by-click: [`docs/auto-fix-app.md`](../docs/auto-fix-app.md).** In short — variable `AUTO_FIX_APP_ID`, variable `AUTO_FIX_INSTALLATION_ID`, secret `AUTO_FIX_APP_PRIVATE_KEY`; `mint-gh-app-token.sh` exchanges these for a short-lived installation token so the fix commit is attributed to the App, not a human PAT.
 3. **Anthropic key.** Secret `CLAUDE_CI_ANTHROPIC_API_KEY` for the headless Claude Code CLI.
-4. **Bot login.** Set `<REVIEW_BOT_LOGIN>` in `review-bot-gate.yml` to your review bot's GitHub login so the P1 gate reads the right threads.
+4. **Bot login.** Set repo variable `REVIEW_BOT_LOGIN` to your review bot's GitHub login (Cursor Bugbot → `cursor[bot]`) so `auto-review-fix` triggers on the right reviews and `review-bot-gate` reads the right threads.
 
 > The gate (`review-bot-gate.yml`) is safe to adopt alone. `auto-review-fix.yml` is
 > the heavier piece — it writes to your repo — so it's opt-in via the marker file.
