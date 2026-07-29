@@ -10,7 +10,7 @@ read at runtime from a small **project profile** you fill in during onboarding.
 
 | Layer | Contents | How it's delivered |
 |---|---|---|
-| **Skills** (`skills/`) | `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` |
+| **Skills** (`skills/`) | `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-plan`, `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` |
 | **Agents** (`agents/`) | `rig-debugger`, `rig-reviewer`, `rig-architect`, `rig-qa`, `rig-coder` | Copied into `<project>/.claude/agents/` |
 | **Support docs** (`templates/`) | starter `REVIEWER.md` (+ `REVIEWER.scope-template.md`), `label-mapping.md` | Copied into `<project>/.claude/` (only if absent) |
 | **Scripts** (`scripts/`) | `setup-worktree.sh`, `remove-worktree.sh`, `mint-gh-app-token.sh`, `scope-reviewer.ts`, `set-session-name.sh` (Claude-only) | Copied into `<project>/.claude/scripts/` |
