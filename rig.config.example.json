@@ -27,7 +27,14 @@
     "ticketPrefix": "ACME-",
     "labelMapFile": ".claude/label-mapping.md",
     "githubIntegration": true,
-    "shapeLabels": { "epic": "epic", "sprint": "sprint" }
+    "shapeLabels": { "epic": "epic", "sprint": "sprint" },
+    "board": {
+      "owner": "acme-inc",
+      "projectNumber": 7,
+      "statusField": "Status",
+      "statusOptions": { "todo": "Todo", "inProgress": "In Progress", "inReview": "In Review", "done": "Done" },
+      "closingKeyword": "Closes"
+    }
   },
   "review": {
     "patternsFile": ".claude/REVIEWER.md",
