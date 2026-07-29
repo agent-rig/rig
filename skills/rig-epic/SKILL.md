@@ -23,6 +23,12 @@ Reads `.rig/config.json` (defaults in parentheses):
 - `tracker.shapeLabels.epic` (`epic`) — GitHub-only label put on the parent at
   creation so a Project board / dispatcher can distinguish the epic from child
   `feature` issues. Omit `shapeLabels` to skip.
+- `tracker.board` — GitHub Projects v2 identity. When set, the **parent's** board
+  transitions and each child's **Done** move go through the `rig-tracker` adapter
+  (`gh issue edit` can't touch a ProjectV2 Status field). Resolver used below:
+  `<TRACKER>` = `.rig/rig-tracker` if executable else `<RIG_DIR>/scripts/rig-tracker.sh`
+  (see [`docs/tracker-adapter.md`](../../docs/tracker-adapter.md)). Absent → skip
+  the board moves; the `linear`/`none` paths are unchanged.
 - `vcs.baseRef` (`origin/main`), `vcs.defaultBranch` (`main`),
   `vcs.protectedBranchMergeQueue` (`false`).
 - `sourceScope[0]` — where to explore during `plan`.
@@ -134,7 +140,9 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
    `<integration-branch>`, not the trunk" note to each child so the next agent
    doesn't re-read this skill, and ensure the **parent** is In Progress
    (adaptive: move it only if not already started; defer if a live integration
-   did). Children get their own In Progress from their `/rig-task` Step 1.
+   did). On a **`tracker: github` board**, do the parent move through the adapter:
+   `<TRACKER> set-status <parent#> "<tracker.board.statusOptions.inProgress>"`.
+   Children get their own In Progress from their `/rig-task` Step 1.
 5. **Name the session** `"EPIC: <parent title> (<parent>)"` via
    `scripts/set-session-name.sh` (Claude-Code-only; no-ops elsewhere) so the
    background-job list reads as the epic. Children set their own `FEAT:`/`CHORE:`
@@ -169,7 +177,12 @@ Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
      until `MERGED`, then `git fetch origin` and confirm the tip advanced. Record
      the child `merged` + its branch in the state file, and **ensure the child
      ticket is Done** (adaptive — move only if not already Done; defer if a live
-     integration closed it). If CI fails / it never merges → treat as not-clean.
+     integration closed it). On a **`tracker: github` board**, move it via the
+     adapter: `<TRACKER> set-status <child#> "<tracker.board.statusOptions.done>"`.
+     (The child'"'"'s PR merged into the **integration branch**, not the default
+     branch, so its `Closes #<n>` has **not** fired — the adapter move is what
+     marks it Done now; the issue itself closes when the epic squashes to trunk.)
+     If CI fails / it never merges → treat as not-clean.
    - anything else (`actionable`/`timeout`, or a tracker-parked state) → the child
      did **not** enable auto-merge; stop. Surface the outcome, the PR URL, and any
      reviewer summary. Wait for the user; don't retry a parked review.
@@ -273,6 +286,10 @@ opens only on `clean` or `applied`. On `paused`, stop and wait.
 3. **Open the final PR** to `vcs.defaultBranch` with a title referencing the
    parent and a body summarizing all children. In a tracker with a closes-verb
    (`Fixes <PARENT>` / `Closes #<n>`), include it so the parent auto-closes.
+   **On `tracker: github`, also add a `Closes #<child>` line for every child
+   issue** — children merged into the integration branch (not the default), so
+   their close verbs never fired; this squash to the trunk is where they finally
+   close. (Their board items were already moved to Done in `next` step 5.)
 4. **Merge behavior:**
    - default → stop, print the PR URL (squash-to-trunk is the human gate).
    - `--merge` → `gh pr merge <N> --squash --delete-branch`, adding `--auto` if
@@ -281,9 +298,12 @@ opens only on `clean` or `applied`. On `paused`, stop and wait.
 5. **Parent state — adaptive** (don't trust `tracker.githubIntegration`; check
    reality): with `--merge`, once the squash PR is MERGED ensure the parent is
    **Done** (move only if not already Done — the closes-verb also closes it if a
-   live integration is connected; don't clobber). Without `--merge`, leave the
-   parent In Progress — it goes Done when a human merges the squash PR (a later
-   `finish`/reconcile run, or a live integration's closes-verb, sets it).
+   live integration is connected; don't clobber). On a **`tracker: github`
+   board**, do the move via the adapter:
+   `<TRACKER> set-status <parent#> "<tracker.board.statusOptions.done>"`. Without
+   `--merge`, leave the parent In Progress — it goes Done when a human merges the
+   squash PR (a later `finish`/reconcile run, or a live integration's closes-verb,
+   sets it).
 6. **Delete the epic state file** `.rig/epics/<integration-branch>.json` (the
    work is on the trunk now).
 7. **Offer local verification.** Ask whether to verify the epic on a local build
