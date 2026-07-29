@@ -33,6 +33,9 @@ Reads `.rig/config.json` (defaults in parentheses):
   which GitHub can't observe before a PR exists. When `false`/absent, you may
   move states freely.
 - `tracker.labelMapFile` (`.claude/label-mapping.md`) — label source of truth.
+- `tracker.board` — GitHub Projects v2 identity (owner, projectNumber,
+  statusOptions, closingKeyword). Used at PR-open (Step 4) to link the PR and
+  move the board via the `rig-tracker` adapter. Absent → no board steps.
 - `vcs.baseRef` (`origin/main`), `vcs.defaultBranch` (`main`),
   `vcs.branchConvention` (`{user}/{ticket}-{slug}`),
   `vcs.protectedBranchMergeQueue` (`false`).
@@ -235,11 +238,23 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
 4. **Link the PR + move to In Review — adaptively** (works with *or* without a
    live tracker↔GitHub integration; treat `tracker.githubIntegration` as a hint,
    not a gate — it may claim `true` while nothing is actually connected):
-   - **Link:** `get_issue`; if no attachment already references this PR URL (a
-     live integration may have added one), `create_attachment` with the PR URL.
-   - **In Review:** `get_issue`; if the item is **not** already In Review or
-     beyond, move it there (`save_issue`). If the integration already advanced it,
-     leave it — never clobber a further-along state.
+   - **`tracker: linear`:**
+     - **Link:** `get_issue`; if no attachment already references this PR URL (a
+       live integration may have added one), `create_attachment` with the PR URL.
+     - **In Review:** `get_issue`; if the item is **not** already In Review or
+       beyond, move it there (`save_issue`). If the integration already advanced
+       it, leave it — never clobber a further-along state.
+   - **`tracker: github`: go through the tracker adapter** (resolver: `<TRACKER>`
+     = `.rig/rig-tracker` if executable else `<RIG_DIR>/scripts/rig-tracker.sh`;
+     see [`docs/tracker-adapter.md`](../../docs/tracker-adapter.md)):
+     - **Link:** `<TRACKER> link-pr <issue#> <pr#>` — idempotently ensures the PR
+       closes/links the issue (Step 3 may already have written the `Closes #<n>`;
+       `link-pr` is a no-op then). This is what moves the board to **Done** on
+       merge via the Project's built-in automation.
+     - **In Review:** if `tracker.board` is configured,
+       `<TRACKER> set-status <issue#> "<tracker.board.statusOptions.inReview>"` —
+       no GitHub *event* moves a card to In Review, so the adapter does it. Skip
+       if no board is configured.
    Ensure the item's labels match `tracker.labelMapFile` if that file exists.
 5. Capture the PR number for Step 6.
 
