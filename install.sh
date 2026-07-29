@@ -8,8 +8,13 @@
 # here — they need per-project parameterization; see ci/README.md, or use the
 # agent-driven `rig-onboard` skill.
 #
+# The rig **Smithers workflow pack** (smithers/) is opt-in via `--smithers`: it
+# vendors smithers/{workflows,ui} + agents.example.ts into <target>/.smithers/.
+# The target should have run `smithers init` first (for the surrounding package);
+# see smithers/README.md.
+#
 # Usage:
-#   ./install.sh [--target <a,b>] <target-project-dir> [skill ...]
+#   ./install.sh [--target <a,b>] [--smithers] <target-project-dir> [skill ...]
 #
 # Targets (adapters):
 #   claude-code  -> .claude/skills/<name>/, .claude/agents/, .claude/scripts/
@@ -28,12 +33,14 @@ set -euo pipefail
 RIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 TARGETS_CSV=""
+INSTALL_SMITHERS=0
 POSARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGETS_CSV+="${TARGETS_CSV:+,}$2"; shift 2 ;;
     --target=*) TARGETS_CSV+="${TARGETS_CSV:+,}${1#--target=}"; shift ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    --smithers) INSTALL_SMITHERS=1; shift ;;
+    -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
     *) POSARGS+=("$1"); shift ;;
   esac
 done
@@ -182,6 +189,33 @@ install_agents_md() {
   echo "[agents-md] injected ## Rig index into AGENTS.md (idempotent)"
 }
 
+# --- Shared: Smithers workflow pack (agent-agnostic, opt-in via --smithers) --
+install_smithers() {
+  echo "[smithers] rig workflow pack -> .smithers/{workflows,ui}"
+  if [[ ! -d "$TARGET/.smithers" ]]; then
+    echo "  note: $TARGET/.smithers not found — run 'smithers init' there first for the"
+    echo "        surrounding package (smithers-orchestrator, gateway, smithers.config.ts)."
+    echo "        Copying the rig files anyway so they're in place."
+  fi
+  # Workflows: the rig-* wrappers + the composable flows/ fragments they import.
+  for f in "$RIG_DIR"/smithers/workflows/rig-*.tsx; do
+    [[ -e "$f" ]] || continue; copy_no_clobber "$f" "$TARGET/.smithers/workflows/$(basename "$f")"
+  done
+  for f in "$RIG_DIR"/smithers/workflows/flows/*.tsx; do
+    [[ -e "$f" ]] || continue; copy_no_clobber "$f" "$TARGET/.smithers/workflows/flows/$(basename "$f")"
+  done
+  # UI dashboards.
+  for f in "$RIG_DIR"/smithers/ui/*.tsx; do
+    [[ -e "$f" ]] || continue; copy_no_clobber "$f" "$TARGET/.smithers/ui/$(basename "$f")"
+  done
+  # Reference only — NEVER vendor agents.ts (machine-specific; regenerate with
+  # `smithers agents add`). Ship the example + the pack README.
+  copy_no_clobber "$RIG_DIR/smithers/agents.example.ts" "$TARGET/.smithers/agents.example.ts"
+  copy_no_clobber "$RIG_DIR/smithers/README.md" "$TARGET/.smithers/RIG-WORKFLOWS.md"
+  echo "  agents.ts is machine-specific — regenerate with 'smithers agents add' (see agents.example.ts)."
+  echo "  re-sync note: this is no-clobber like the rest; to update rig-owned files, delete them first."
+}
+
 # --- Run ---------------------------------------------------------------------
 echo "Installing Rig into: $TARGET"
 echo "Targets: ${TARGETS[*]}"
@@ -200,10 +234,15 @@ done
 echo "Project profile:"
 write_profile
 
+if [[ "$INSTALL_SMITHERS" == 1 ]]; then
+  echo
+  install_smithers
+fi
+
 cat <<EOF
 
 Done. Next:
   1. Edit $TARGET/.rig/config.json for your project (see docs/config.md).
   2. For CI workflows, see $RIG_DIR/ci/README.md (copy + parameterize by hand).
-  3. Or run the 'rig-onboard' skill in your agent for the guided setup.
+  3. Or run the 'rig-onboard' skill in your agent for the guided setup.$([[ "$INSTALL_SMITHERS" == 1 ]] && printf '\n  4. Smithers pack: run `smithers init` (if not already) + `smithers agents add`, then `smithers ls` in %s.' "$TARGET")
 EOF
