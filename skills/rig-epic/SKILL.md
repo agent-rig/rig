@@ -55,9 +55,18 @@ Each active epic is tracked in a repo-local JSON file at
 }
 ```
 
-This is the single source of truth `next`/`run`/`review`/`finish`/`prune` read.
-Add `.rig/epics/` to `.gitignore` (it's transient coordination state). Parent
-inference (when `<PARENT>` is omitted): if exactly one `.rig/epics/*.json`
+**Where the truth lives.** On `tracker: github`, the source of truth is the
+**parent issue and its native sub-issues on the tracker** — not this file. The
+JSON is a *local cache* rebuilt from the tracker (`gh api
+repos/<repo>/issues/<parent>/sub_issues`), and it is **gitignored — never
+committed** (`.rig/epics/` is in `.gitignore`). On `linear` the parent/children
+live in Linear; on `none` the file is the only record. Either way it's throwaway
+coordination state, rebuildable from the tracker at any time — the board is the
+shared brain, not the repo.
+
+`next`/`run`/`review`/`finish`/`prune` read the reconstructed set. Parent
+inference (when `<PARENT>` is omitted): on `github`, the open issue labelled
+`shapeLabels.epic` that has sub-issues; else if exactly one `.rig/epics/*.json`
 exists, use it; if zero or many, ask.
 
 **Intent banner:** every invocation MUST print one line first — mode, what
@@ -111,8 +120,14 @@ no integration branch.
    - **Record `blockedBy` for every real dependency** — this is what `next`
      reads to pick the next unblocked child. Without it the pick falls back to
      declaration order and gets interleaved epics wrong.
-   - Tracker mode: set the tracker's native parent/blocked-by relations *and*
-     mirror them into the state file. `none`: state file only.
+   - **`tracker: github`**: create each child as its own issue, then **link it as
+     a native sub-issue of the parent** —
+     `gh api repos/<repo>/issues/<parent#>/sub_issues -F sub_issue_id=$(gh api repos/<repo>/issues/<child#> -q .id)` —
+     and write "Blocked by #<n>" in the child body (GitHub has no native
+     blockedBy). The sub-issues **are** the epic on the board; the `.rig/epics`
+     cache is derived from them, never the other way around.
+   - **`tracker: linear`**: set the native parent + blocked-by relations.
+   - **`none`**: the state file is the only record.
 5. **Show a summary table** (ID · Title · Depends On).
 6. **Chain into `start <PARENT>`** — `plan` is plan-and-start; don't stop to ask.
 7. **Stop after `start`.** Report the integration branch, the children, and the
@@ -123,6 +138,15 @@ no integration branch.
 
 Pre-flight: `git fetch origin`; confirm the parent and at least one child exist
 (in the tracker, or as arguments for `none`).
+
+**Rebuild the cache from the tracker (github).** If `<PARENT>` is an existing
+GitHub epic (e.g. `/rig-epic 42` or `/rig-epic run`), reconstruct the children
+from its **sub-issues** rather than trusting any local file:
+`gh api repos/<repo>/issues/<parent#>/sub_issues` → each becomes a child (id =
+issue number, `blockedBy` parsed from "Blocked by #n" in the body,
+`status` from open/closed + board column). Write that to `.rig/epics/<branch>.json`
+(gitignored). This is what makes an epic you were handed on the board runnable —
+no committed state required.
 
 1. **Integration branch name:** `<parent-slug>-<title-slug>` (kebab, e.g.
    `abc-42-agent-as-definition`).
