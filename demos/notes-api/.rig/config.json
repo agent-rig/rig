@@ -1,0 +1,19 @@
+{
+  "project": {
+    "name": "notes-api"
+  },
+  "sourceScope": ["src"],
+  "agents": {
+    "architect": "rig-architect"
+  },
+  "tracker": {
+    "provider": "none"
+  },
+  "sync": {
+    "specGlob": "SPEC.md",
+    "extractor": ".rig/rig-sync-extractor",
+    "truth": "ask",
+    "apply": { "sink": "report" },
+    "driftReport": ".rig/DRIFT.md"
+  }
+}
