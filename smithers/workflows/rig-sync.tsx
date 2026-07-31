@@ -73,6 +73,11 @@ without it. Else return blockers. Set unitId: "${u.id}".`}
 export default smithers(
   (ctx) => {
     const work = ctx.input.units.filter((u) => u.klass === "work");
+    // Gates are DECISION NODES; subsequent steps are gated on the recorded
+    // decision (rig's EpicFlow convention) — nesting steps as Approval children
+    // does not schedule them.
+    const planApproved = ctx.outputMaybe(outputs.gate, { nodeId: "plan-gate" })?.approved === true;
+    const mergeApproved = ctx.outputMaybe(outputs.gate, { nodeId: "merge-gate" })?.approved === true;
     return (
       <Workflow name="rig-sync">
         <UI entry="../ui/rig-sync.tsx" title="rig-sync — reconcile code to spec" />
@@ -95,33 +100,40 @@ export default smithers(
               title: `Reconcile ${ctx.input.project} to ${ctx.input.specGlob}?`,
               summary: work.map((u) => u.action).join("; ") || "no work units",
             }}
-          >
-            {/* 3 — one isolated lane per work unit. */}
+          />
+
+          {/* 3 — after plan approval: one isolated lane per work unit. */}
+          {planApproved && (
             <Parallel>{work.map((u) => (
               <Unit key={u.id} ctx={ctx} u={u} baseBranch={ctx.input.baseBranch} />
             ))}</Parallel>
+          )}
 
-            {/* 4 — merge gate, then serialize the merges. */}
+          {/* 4 — merge gate (Sequence keeps it after the lanes). */}
+          {planApproved && (
             <Approval
               id="merge-gate"
               output={outputs.gate}
               request={{ title: `Land the reconciled units to ${ctx.input.baseBranch}?` }}
-            >
-              <MergeQueue maxConcurrency={1}>{work.map((u) => (
-                <Task key={u.id} id={`merge-${u.id}`} output={outputs.merge} agent={agents.midTier}>
-                  {`Squash-merge the approved lane for unit "${u.id}" onto ${ctx.input.baseBranch}; re-run the suite. Set unitId + merged.`}
-                </Task>
-              ))}</MergeQueue>
-            </Approval>
+            />
+          )}
 
-            {/* 5 — final verify: re-run the extractor vs the spec ⇒ zero residual drift. */}
+          {/* 5 — after merge approval: serialize the merges, then final-verify. */}
+          {planApproved && mergeApproved && (
+            <MergeQueue maxConcurrency={1}>{work.map((u) => (
+              <Task key={u.id} id={`merge-${u.id}`} output={outputs.merge} agent={agents.midTier}>
+                {`Squash-merge the approved lane for unit "${u.id}" onto ${ctx.input.baseBranch}; re-run the suite. Set unitId + merged.`}
+              </Task>
+            ))}</MergeQueue>
+          )}
+          {planApproved && mergeApproved && (
             <Task id="final-verify" output={outputs.final} retries={0}>
               {async () => ({
                 residualDrift: 0,
                 summary: "re-run scripts/rig-sync.ts diff on the merged trunk; expect zero missing/diverged.",
               })}
             </Task>
-          </Approval>
+          )}
         </Sequence>
       </Workflow>
     );
