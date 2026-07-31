@@ -46,5 +46,12 @@
     "imageRegistry": "ghcr.io",
     "slackWebhookSecret": "SLACK_CI_WEBHOOK_URL",
     "trustBoundaryPaths": ["packages/api/src/auth", "packages/api/src/billing", "infra/"]
+  },
+  "sync": {
+    "specGlob": "SPEC.md",
+    "extractor": ".rig/rig-sync-extractor",
+    "truth": "ask",
+    "driftReport": ".rig/DRIFT.md",
+    "apply": { "sink": "workflow" }
   }
 }

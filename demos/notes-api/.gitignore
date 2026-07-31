@@ -3,3 +3,7 @@
 .rig/plan.md
 .rig/spec.lock.json
 node_modules/
+
+# smithers scaffold (generate on demand with `smithers init`; never committed)
+.smithers/
+smithers.db*
