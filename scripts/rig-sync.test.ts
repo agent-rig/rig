@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { computeDrift, hasDrift, parseSurfaceDoc, renderReport, type SurfaceEl } from "./rig-sync.ts";
+import {
+  computeDrift,
+  hasDrift,
+  parseSurfaceDoc,
+  renderReport,
+  validateSurfaceDoc,
+  type SurfaceEl,
+} from "./rig-sync.ts";
 
 const ep = (id: string, extra: Partial<SurfaceEl> = {}): SurfaceEl => ({ kind: "endpoint", id, ...extra });
 
@@ -119,6 +126,45 @@ describe("renderReport", () => {
     const md = renderReport(computeDrift([ep("GET /x")], [ep("GET /x")]));
     expect(md).toContain("In sync");
     expect(md).not.toContain("## Missing");
+  });
+});
+
+describe("validateSurfaceDoc — adapter contract", () => {
+  test("a valid envelope passes", () => {
+    const r = validateSurfaceDoc('{"surface":[{"kind":"endpoint","id":"GET /x"}],"invariants":[{"assert":"a"}]}');
+    expect(r.ok).toBe(true);
+    expect(r.errors).toEqual([]);
+  });
+
+  test("a bare array passes", () => {
+    expect(validateSurfaceDoc('[{"kind":"topic","id":"o.filled"}]').ok).toBe(true);
+  });
+
+  test("non-JSON fails cleanly", () => {
+    const r = validateSurfaceDoc("not json {");
+    expect(r.ok).toBe(false);
+    expect(r.errors[0]).toContain("not JSON");
+  });
+
+  test("missing surface array fails", () => {
+    expect(validateSurfaceDoc('{"invariants":[]}').ok).toBe(false);
+  });
+
+  test("element missing kind/id is reported with index", () => {
+    const r = validateSurfaceDoc('{"surface":[{"id":"GET /x"},{"kind":"endpoint"}]}');
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.includes("surface[0]") && e.includes("kind"))).toBe(true);
+    expect(r.errors.some((e) => e.includes("surface[1]") && e.includes("id"))).toBe(true);
+  });
+
+  test("duplicate (kind,id) is rejected", () => {
+    const r = validateSurfaceDoc('{"surface":[{"kind":"endpoint","id":"GET /x"},{"kind":"endpoint","id":"GET /x"}]}');
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.includes("duplicate"))).toBe(true);
+  });
+
+  test("invariant without assert is rejected", () => {
+    expect(validateSurfaceDoc('{"surface":[],"invariants":[{"note":"x"}]}').ok).toBe(false);
   });
 });
 
