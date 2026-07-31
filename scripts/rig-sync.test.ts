@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   computeDrift,
+  driftToUnits,
   hasDrift,
   parseSurfaceDoc,
+  renderDriftSpec,
   renderReport,
   validateSurfaceDoc,
   type SurfaceEl,
@@ -126,6 +128,44 @@ describe("renderReport", () => {
     const md = renderReport(computeDrift([ep("GET /x")], [ep("GET /x")]));
     expect(md).toContain("In sync");
     expect(md).not.toContain("## Missing");
+  });
+});
+
+describe("driftToUnits — truth routes the sides", () => {
+  // spec: GET /x (aligned), PUT /y (diverged attr), DELETE /z (missing)
+  // code: GET /x, PUT /y (differs), GET /extra (undocumented)
+  const spec = [ep("GET /x"), ep("PUT /y", { attrs: { a: 1 } }), ep("DELETE /z")];
+  const code = [ep("GET /x"), ep("PUT /y", { attrs: { a: 2 } }), ep("GET /extra")];
+  const drift = () => computeDrift(spec, code);
+
+  test("missing is always work", () => {
+    expect(driftToUnits(drift(), "ask").find((u) => u.id === "DELETE /z")!.klass).toBe("work");
+  });
+
+  test("truth=ask leaves diverged + undocumented as decisions", () => {
+    const u = driftToUnits(drift(), "ask");
+    expect(u.find((x) => x.id === "PUT /y")!.klass).toBe("decision");
+    expect(u.find((x) => x.id === "GET /extra")!.klass).toBe("decision");
+  });
+
+  test("truth=spec: diverged & undocumented become code work", () => {
+    const u = driftToUnits(drift(), "spec");
+    expect(u.find((x) => x.id === "PUT /y")!.klass).toBe("work");
+    expect(u.find((x) => x.id === "GET /extra")!.klass).toBe("work"); // remove it
+  });
+
+  test("truth=code: diverged & undocumented become doc changes", () => {
+    const u = driftToUnits(drift(), "code");
+    expect(u.find((x) => x.id === "PUT /y")!.klass).toBe("doc");
+    expect(u.find((x) => x.id === "GET /extra")!.klass).toBe("doc");
+  });
+
+  test("renderDriftSpec groups by class; 'In sync' when clean", () => {
+    const md = renderDriftSpec(drift(), { project: "notes-api", truth: "ask" });
+    expect(md).toContain("# Reconcile notes-api → spec");
+    expect(md).toContain("## Work");
+    expect(md).toContain("## Decisions");
+    expect(renderDriftSpec(computeDrift([ep("GET /x")], [ep("GET /x")]))).toContain("In sync");
   });
 });
 
