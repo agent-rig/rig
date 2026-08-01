@@ -64,7 +64,7 @@ const { Workflow, smithers, outputs } = createSmithers({
 
 /** One reconciling lane: isolated worktree, coder↔reviewer until approved.
  *  RED→GREEN→review for code — the rig-task loop, in-workflow. */
-function Unit({ ctx, u, baseBranch }: { ctx: any; u: z.infer<typeof unitSchema>; baseBranch: string }) {
+function Unit({ ctx, u, baseBranch }: { ctx: any; u: z.infer<typeof unitSchema>; baseBranch: string; key?: string }) {
   const s = slug(u.id);
   return (
     <Worktree path={`.wt/${s}`} branch={`rig-sync/${s}`} baseBranch={baseBranch}>
@@ -89,7 +89,7 @@ without it. Else return blockers. Set unitId: "${u.id}".`}
 
 export default smithers(
   (ctx) => {
-    const work = ctx.input.units.filter((u) => u.klass === "work");
+    const work = (ctx.input.units ?? []).filter((u) => u.klass === "work");
     // Gates are DECISION NODES; subsequent steps are gated on the recorded
     // decision (rig's EpicFlow convention) — nesting steps as Approval children
     // does not schedule them.

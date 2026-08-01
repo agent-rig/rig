@@ -65,7 +65,7 @@ const { Workflow, Sequence, Parallel, Task, Loop, Branch, smithers, outputs } = 
 
 export default smithers((ctx) => {
   const advisor = ctx.input.advisor !== false;
-  const seed = ctx.input.built.join(", ") || "(none)";
+  const seed = (ctx.input.built ?? []).join(", ") || "(none)";
 
   const pick = ctx.latest(outputs.pick, "pick");
   const backlogDry = Boolean(pick && (pick.ready === false || (pick.ticketId ?? "") === ""));
