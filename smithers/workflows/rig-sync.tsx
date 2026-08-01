@@ -15,9 +15,19 @@ import {
   MergeQueue,
   UI,
   approvalDecisionSchema,
+  ClaudeCodeAgent,
 } from "smithers-orchestrator";
 import { z } from "zod";
-import { agents } from "../agents";
+
+// rig-sync defaults to your Claude account (Claude Code) so the reconcile
+// workflow runs OUT OF THE BOX — no .smithers/agents.ts to configure, and no
+// Codex/Fable-first defaults to fight. To go multi-modal, replace these seats
+// with pools from your own agents.ts (e.g. `import { agents } from "../agents"`
+// then `coder: agents.implement, reviewer: agents.review`).
+const seats = {
+  coder: new ClaudeCodeAgent({ model: "opus" }),
+  reviewer: new ClaudeCodeAgent({ model: "opus" }),
+};
 
 /** A safe git-branch / worktree-path / node-id token from an arbitrary unit id
  *  (unit ids like "DELETE /notes/{id}" contain spaces, slashes, and braces that
@@ -59,7 +69,7 @@ function Unit({ ctx, u, baseBranch }: { ctx: any; u: z.infer<typeof unitSchema>;
   return (
     <Worktree path={`.wt/${s}`} branch={`rig-sync/${s}`} baseBranch={baseBranch}>
       <Ralph until={ctx.latest(outputs.review, `review-${s}`)?.approved} maxIterations={4}>
-        <Task id={`impl-${s}`} output={outputs.reconcile} agent={agents.implement}>
+        <Task id={`impl-${s}`} output={outputs.reconcile} agent={seats.coder}>
           {`Reconcile this drift unit: ${u.action}
 
 Ground truth is the spec (${ctx.input.specGlob}); the code's actual surface is what
@@ -67,7 +77,7 @@ the extractor (${ctx.input.extractor}) prints. Where this is a code change, writ
 failing test first (RED), then make it pass (GREEN). Touch only what this unit needs.
 Report { unitId: "${u.id}", summary, branch }.`}
         </Task>
-        <Task id={`review-${s}`} output={outputs.review} agent={agents.review}>
+        <Task id={`review-${s}`} output={outputs.review} agent={seats.reviewer}>
           {`Review unit "${u.id}" (${u.action}) against the spec and .claude/REVIEWER.md.
 Approve ONLY if it reconciles the drift and (for a code change) has a test that fails
 without it. Else return blockers. Set unitId: "${u.id}".`}
@@ -128,7 +138,7 @@ export default smithers(
           {/* 5 — after merge approval: serialize the merges, then final-verify. */}
           {planApproved && mergeApproved && (
             <MergeQueue maxConcurrency={1}>{work.map((u) => (
-              <Task key={u.id} id={`merge-${slug(u.id)}`} output={outputs.merge} agent={agents.midTier}>
+              <Task key={u.id} id={`merge-${slug(u.id)}`} output={outputs.merge} agent={seats.coder}>
                 {`Squash-merge the approved lane for unit "${u.id}" onto ${ctx.input.baseBranch}; re-run the suite. Set unitId + merged.`}
               </Task>
             ))}</MergeQueue>

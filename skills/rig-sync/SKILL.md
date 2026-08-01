@@ -91,9 +91,10 @@ On approval only, and **never by editing product code**. Split the drift:
   --input <drift.json>`. It is authored **once** and parameterized per run — do
   **not** generate a new workflow per drift, and do **not** use `smithers
   make-workflow` (that is an authoring assistant, not a runtime step). It survives
-  crashes, resumes over days, and takes its worker models from the **target
-  project's** Smithers `agents.ts` — rig picks no engine. Report the run id + how
-  to monitor. If Smithers is absent, fall back to `backlog` and say so.
+  crashes and resumes over days. Its two seats (coder, reviewer) **default to your
+  Claude account** (`ClaudeCodeAgent`), so it runs with no `.smithers/agents.ts`
+  to configure; swap them for your own `agents.ts` pools to go multi-modal. Report
+  the run id + how to monitor. If Smithers is absent, fall back to `backlog`.
 - **`backlog`** — create one milestone (`reconcile <spec> → drift vN`) and hand the
   drift-spec to `/rig-plan`; units land as tickets on the board.
 - **`report`** — write the drift-spec + proposed units to `.rig/plan.md`.
@@ -109,8 +110,10 @@ projection (preserving `sync.preserve`).
 - **One workflow, run many.** The reconcile workflow is a durable artifact
   (`smithers/workflows/rig-sync.tsx`) parameterized by drift, not regenerated per
   run. Authoring it is a one-time cost; running it is cheap and resumable.
-- **No lock-in.** Execution is Smithers (multi-modal, engine-agnostic); rig-sync
-  itself picks no model. The `report`/`backlog` sinks need no runtime at all.
+- **Runs out of the box, still multi-modal.** The workflow's seats default to
+  Claude (`ClaudeCodeAgent`) so it just runs; execution is Smithers, so swapping
+  the seats for your `agents.ts` pools gives you any engine. The `report`/`backlog`
+  sinks need no runtime at all.
 - **Direction of truth is a human call** — `sync.truth` / `--truth`; default `ask`.
 - **The adapter is the seam.** Without an extractor, coverage is best-effort agent
   reasoning — fine for a read, not authoritative.

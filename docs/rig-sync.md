@@ -76,11 +76,16 @@ bun scripts/rig-sync.ts report --desired desired.json --actual actual.json --out
 Chosen by `sync.apply.sink`:
 
 - **`workflow`** (default) — run the **durable Smithers reconcile workflow** with
-  the drift as input. It survives crashes, resumes over days, and is
-  **multi-modal**: worker seats come from the *target project's* Smithers
-  `agents.ts` / accounts — **rig picks no model or engine.** rig-sync ships the
-  workflow (authored once, parameterized by drift); it does **not** author a new
-  workflow per run.
+  the drift as input. It survives crashes and resumes over days. rig-sync ships
+  the workflow (authored once, parameterized by drift); it does **not** author a
+  new workflow per run.
+  - **Agents: runs on your Claude account out of the box.** The workflow's two
+    seats (coder, reviewer) default to `ClaudeCodeAgent` — so it runs immediately
+    with no `.smithers/agents.ts` to configure, and never inherits `smithers
+    init`'s Codex/Fable-first pools. **Still multi-modal:** to run any engine
+    Smithers supports, swap those seats for your own `agents.ts` pools (one edit
+    in `smithers/workflows/rig-sync.tsx`). rig defaults to the provider you're
+    already using; it doesn't force one.
 - **`backlog`** — one milestone + tickets via `/rig-plan` (board-native).
 - **`report`** — write the drift-spec to a file only.
 
