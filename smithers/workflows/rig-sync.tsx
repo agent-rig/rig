@@ -64,7 +64,7 @@ const { Workflow, smithers, outputs } = createSmithers({
 
 /** One reconciling lane: isolated worktree, coder↔reviewer until approved.
  *  RED→GREEN→review for code — the rig-task loop, in-workflow. */
-function Unit({ ctx, u, baseBranch }: { ctx: any; u: z.infer<typeof unitSchema>; baseBranch: string }) {
+function Unit({ ctx, u, baseBranch }: { ctx: any; u: z.infer<typeof unitSchema>; baseBranch: string; key?: string }) {
   const s = slug(u.id);
   return (
     <Worktree path={`.wt/${s}`} branch={`rig-sync/${s}`} baseBranch={baseBranch}>
