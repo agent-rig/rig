@@ -34,6 +34,9 @@ Reads the `sync` block of `.rig/config.json` (defaults in parentheses):
 - `sync.driftReport` (`.rig/DRIFT.md`) — where the report is written.
 - Reused: `sourceScope`, `agents.architect`, `vcs.baseRef`, and — for the
   `backlog` sink — `tracker.*` + `tracker.board`.
+- `gateway.*` — how the `workflow` sink's UI is exposed (port, `mode`
+  auto/tailscale-serve/insecure/loopback, servePort, trustAnyHost); consumed by
+  `scripts/smithers-gateway.sh` (run automatically after launch). See rig.schema.json.
 
 ## The extractor adapter
 
@@ -93,8 +96,16 @@ On approval only, and **never by editing product code**. Split the drift:
   make-workflow` (that is an authoring assistant, not a runtime step). It survives
   crashes and resumes over days. Its two seats (coder, reviewer) **default to your
   Claude account** (`ClaudeCodeAgent`), so it runs with no `.smithers/agents.ts`
-  to configure; swap them for your own `agents.ts` pools to go multi-modal. Report
-  the run id + how to monitor. If Smithers is absent, fall back to `backlog`.
+  to configure; swap them for your own `agents.ts` pools to go multi-modal.
+  Then **bring up a reachable UI** for the run so its gates can be watched and
+  approved in a browser: `bash <RIG_DIR>/scripts/smithers-gateway.sh up`. It is
+  idempotent — it runs the Gateway on **loopback** (no bearer token; the Gateway's
+  token auth is `Authorization`-header only, so a token-gated UI is unreachable from
+  a browser) and, when Tailscale is present, publishes it over HTTPS via `tailscale
+  serve`, exporting `SMITHERS_GATEWAY_TRUST_ANY_HOST=1` so the tailnet host is
+  accepted. It prints the **console URL**. Report the run id, that console URL, and
+  that the plan/merge gates are approved from the UI or with `smithers approve
+  <run-id>` (`smithers deny` to reject). If Smithers is absent, fall back to `backlog`.
 - **`backlog`** — create one milestone (`reconcile <spec> → drift vN`) and hand the
   drift-spec to `/rig-plan`; units land as tickets on the board.
 - **`report`** — write the drift-spec + proposed units to `.rig/plan.md`.

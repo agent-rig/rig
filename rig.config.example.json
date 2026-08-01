@@ -53,5 +53,11 @@
     "truth": "ask",
     "driftReport": ".rig/DRIFT.md",
     "apply": { "sink": "workflow" }
+  },
+  "gateway": {
+    "mode": "auto",
+    "port": 7331,
+    "servePort": 8443,
+    "trustAnyHost": true
   }
 }

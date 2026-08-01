@@ -141,6 +141,17 @@
           }
         }
       }
+    },
+    "gateway": {
+      "type": "object",
+      "description": "Smithers Gateway exposure. Consumed by scripts/smithers-gateway.sh. The Gateway is Smithers' run control plane (every monitor/UI/approval reads through it); this block controls how it is published for browser access.",
+      "additionalProperties": false,
+      "properties": {
+        "port": { "type": "integer", "default": 7331, "description": "Loopback port the Gateway binds." },
+        "mode": { "type": "string", "enum": ["auto", "tailscale-serve", "insecure", "loopback"], "default": "auto", "description": "auto: tailscale-serve when Tailscale+HTTPS is available, else loopback. tailscale-serve: Gateway on loopback, published to the tailnet over HTTPS via `tailscale serve` (browser auth = Tailscale device identity, no bearer token). insecure: bind the tailnet IP directly with NO auth (exposes a full-control control plane to the whole tailnet). loopback: 127.0.0.1 only." },
+        "servePort": { "type": "integer", "default": 8443, "description": "HTTPS port used by `tailscale serve` in tailscale-serve mode." },
+        "trustAnyHost": { "type": "boolean", "default": true, "description": "Set SMITHERS_GATEWAY_TRUST_ANY_HOST=1 so the tailnet DNS name in the Host header is accepted instead of rejected as a DNS-rebinding attempt. Required for the browser UI over a tailnet name." }
+      }
     }
   }
 }
