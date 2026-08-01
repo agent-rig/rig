@@ -120,6 +120,27 @@
           "description": "Paths that trip the deeper security-scan gate (auth, secrets, tenancy, billing surfaces)."
         }
       }
+    },
+    "sync": {
+      "type": "object",
+      "description": "rig-sync (spec <-> code reconciliation) configuration. Consumed by rig-sync plan/apply. Absent = rig-sync is unconfigured for this project.",
+      "additionalProperties": false,
+      "properties": {
+        "specGlob": { "type": "string", "default": "SPEC.md", "description": "Desired-state source: a spec/catalog file or glob. Defaults to the first of SPEC.md, specs/prd.md, docs/prd.md that exists." },
+        "projection": { "type": "string", "description": "Optional path to a generated machine-readable projection of the spec (the diffable middle layer, e.g. .rig/spec.lock.json). When set, rig-sync regenerates and diffs it; unset, it diffs the prose spec directly." },
+        "extractor": { "type": "string", "description": "Project-supplied executable that prints the code's actual surface as JSON {surface,invariants}. Resolver: .rig/rig-sync-extractor if executable, else this value, else a best-effort agent scan." },
+        "preserve": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Globs of hand-maintained files/regions in the projection that are never regenerated — preserved verbatim; rig-sync only cross-checks them and flags contradictions." },
+        "truth": { "type": "string", "enum": ["spec", "code", "ask"], "default": "ask", "description": "Direction of truth when spec and code disagree: spec (code drift becomes work), code (spec drift becomes a doc update), or ask (report both, human decides)." },
+        "driftReport": { "type": "string", "default": ".rig/DRIFT.md", "description": "Where the human-readable drift report is written." },
+        "apply": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How the apply verb reconciles drift.",
+          "properties": {
+            "sink": { "type": "string", "enum": ["workflow", "backlog", "report"], "default": "workflow", "description": "workflow: run the durable Smithers reconcile workflow with the drift as input (default; multi-modal, resumable). backlog: one milestone + tickets via rig-plan. report: write the drift-spec to a file only." }
+          }
+        }
+      }
     }
   }
 }

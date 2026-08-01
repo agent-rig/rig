@@ -1,0 +1,46 @@
+{
+  "$schema": "../rig.schema.json",
+  "project": {
+    "name": "rig",
+    "repo": "agent-rig/rig"
+  },
+  "runtime": {
+    "packageManager": "bun"
+  },
+  "test": {
+    "command": "bun test",
+    "requiresDatabase": false
+  },
+  "sourceScope": ["skills", "scripts", "smithers", "docs"],
+  "vcs": {
+    "defaultBranch": "main",
+    "baseRef": "origin/main",
+    "branchConvention": "{user}/{ticket}-{slug}",
+    "protectedBranchMergeQueue": false
+  },
+  "tracker": {
+    "provider": "github",
+    "team": "agent-rig",
+    "githubIntegration": false,
+    "shapeLabels": { "epic": "epic", "sprint": "sprint" },
+    "board": {
+      "owner": "agent-rig",
+      "projectNumber": 1,
+      "statusField": "Status",
+      "statusOptions": { "todo": "Todo", "inProgress": "In Progress", "done": "Done" },
+      "closingKeyword": "Closes"
+    }
+  },
+  "review": {
+    "patternsFile": ".claude/REVIEWER.md",
+    "bot": "none",
+    "maxRounds": 5
+  },
+  "agents": {
+    "architect": "rig-architect",
+    "coder": "rig-coder",
+    "reviewer": "rig-reviewer",
+    "qa": "rig-qa",
+    "debugger": "rig-debugger"
+  }
+}

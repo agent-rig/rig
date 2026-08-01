@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""rig-sync extractor adapter for the notes-api demo.
+
+Enumerates the code's ACTUAL surface — the HTTP routes declared in src/ — and
+prints it as the JSON contract rig-sync expects:
+
+    { "surface": [ { kind, id, role, owner, ref }, ... ],
+      "invariants": [ { assert }, ... ] }
+
+rig-sync diffs this `surface` against the spec's expected surface (keyed by
+`(kind, id)`) and checks the `invariants`. This is the ONLY demo-specific piece:
+the project owns "what a surface is," rig-sync owns the diff/report/reconcile
+loop — the same split as the rig-tracker adapter.
+
+Usage: rig-sync-extractor [--files <path> ...]   (default: scan src/)
+Informational only; never exits non-zero.
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+# app.get("/x", ...) / router.post('/x', ...) — method + quoted path
+ROUTE = re.compile(r"""\b(?:app|router)\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]""")
+
+
+def scan(files):
+    surface, seen = [], set()
+    for f in files:
+        try:
+            lines = Path(f).read_text().splitlines()
+        except OSError:
+            continue
+        for n, line in enumerate(lines, 1):
+            m = ROUTE.search(line)
+            if not m:
+                continue
+            method = m.group(1).upper()
+            # normalise Express :id path params to the spec's {id} form
+            path = re.sub(r":([A-Za-z_][A-Za-z0-9_]*)", r"{\1}", m.group(2))
+            sid = f"{method} {path}"
+            if sid in seen:
+                continue
+            seen.add(sid)
+            surface.append({
+                "kind": "endpoint",
+                "id": sid,
+                "role": "route",
+                "owner": str(Path(f).parent),
+                "ref": f"{f}:{n}",
+            })
+    return surface
+
+
+def main():
+    args = sys.argv[1:]
+    if args and args[0] == "--files":
+        files = args[1:]
+    else:
+        files = [str(p) for p in Path("src").rglob("*.js")]
+    out = {
+        "surface": scan(files),
+        "invariants": [
+            {"assert": "every endpoint in SPEC.md has a handler in src/"},
+            {"assert": "no undocumented endpoints — every code endpoint appears in SPEC.md"},
+        ],
+    }
+    print(json.dumps(out, indent=2))
+
+
+if __name__ == "__main__":
+    main()
