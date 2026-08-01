@@ -89,7 +89,7 @@ without it. Else return blockers. Set unitId: "${u.id}".`}
 
 export default smithers(
   (ctx) => {
-    const work = ctx.input.units.filter((u) => u.klass === "work");
+    const work = (ctx.input.units ?? []).filter((u) => u.klass === "work");
     // Gates are DECISION NODES; subsequent steps are gated on the recorded
     // decision (rig's EpicFlow convention) — nesting steps as Approval children
     // does not schedule them.
