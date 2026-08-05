@@ -7,7 +7,7 @@ allowed-tools: [Bash, Read]
 
 # Worktree — isolated dev checkout lifecycle
 
-Create / list / remove isolated git worktrees under `.claude/rig-worktrees/`.
+Create / list / remove isolated git worktrees under `.claude/worktrees/`.
 Creation produces a worktree that's actually ready to run: fetched from
 origin, branched from the right base, env files symlinked, dependencies
 installed. This is a shared bootstrap you can call directly (spikes,
@@ -59,8 +59,10 @@ only required argument.
 - `--base <ref>` — base to branch from. Default `vcs.baseRef`. For a
   stacked/integration child, pass `origin/<integration-branch>`.
 - `--path <path>` — worktree location. Default
-  `.claude/rig-worktrees/<last segment of branch>` (so `alice/feat-521-foo`
-  → `.claude/rig-worktrees/feat-521-foo`).
+  `.claude/worktrees/<last segment of branch>` (so `alice/feat-521-foo`
+  → `.claude/worktrees/feat-521-foo`). This is the directory the Claude Code
+  harness manages, so a worktree created here can be adopted natively via
+  `EnterWorktree`/`ExitWorktree`.
 - `--reuse` — if the worktree/branch already exists, fetch and
   hard-reset it to `<base>` instead of failing. Use this for a
   "reuse a child worktree" path.
