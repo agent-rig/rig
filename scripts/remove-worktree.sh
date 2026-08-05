@@ -8,7 +8,7 @@
 # Usage:
 #   remove-worktree.sh <path-or-branch> [options]
 #
-#   <path-or-branch>   Worktree path (e.g. .claude/rig-worktrees/feat-521-foo) or
+#   <path-or-branch>   Worktree path (e.g. .claude/worktrees/feat-521-foo) or
 #                      the branch checked out in it (e.g. alice/feat-521-foo).
 #
 # Options:
@@ -97,4 +97,10 @@ fi
 git -C "$MAIN" worktree prune >&2
 
 echo "removed $WT_PATH"
-echo "remove-worktree: removed $WT_PATH${KEEP_BRANCH:+ (kept branch)}" >&2
+# KEEP_BRANCH is "0" when unset — non-empty, so ${KEEP_BRANCH:+…} fires either
+# way. Compare it, or the script claims it kept a branch it just force-deleted.
+if [ "$KEEP_BRANCH" = "1" ]; then
+  echo "remove-worktree: removed $WT_PATH (kept branch)" >&2
+else
+  echo "remove-worktree: removed $WT_PATH${BRANCH:+ (deleted branch $BRANCH)}" >&2
+fi

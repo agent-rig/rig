@@ -19,7 +19,7 @@
 #                         e.g. from vcs.baseRef in .rig/config.json).
 #                         Pass origin/<integration-branch> for stacked children.
 #   --path <path>         Worktree path. Default:
-#                         .claude/rig-worktrees/<basename-of-branch>.
+#                         .claude/worktrees/<basename-of-branch>.
 #   --reuse               If the worktree (or branch) already exists, reuse it:
 #                         fetch + hard-reset to <base> instead of failing.
 #                         Without this, an existing path/branch is an error.
@@ -80,9 +80,12 @@ done
 MAIN=$(git worktree list --porcelain | awk '/^worktree / && !seen { print $2; seen=1 }')
 [ -n "$MAIN" ] || die "could not resolve main worktree root"
 
-# Default worktree path: .claude/rig-worktrees/<last segment of branch>.
+# Default worktree path: .claude/worktrees/<last segment of branch>. This is the
+# directory the Claude Code harness manages, so a worktree created here can be
+# adopted natively via EnterWorktree/ExitWorktree (a sibling .claude/rig-worktrees/
+# path could not). Override with --path.
 if [ -z "$WT_PATH" ]; then
-  WT_PATH="$MAIN/.claude/rig-worktrees/${BRANCH##*/}"
+  WT_PATH="$MAIN/.claude/worktrees/${BRANCH##*/}"
 fi
 # Normalize to absolute.
 case "$WT_PATH" in
@@ -125,10 +128,12 @@ if [ -d "$WT_PATH" ]; then
 else
   # Create the worktree. -B so an already-existing local branch is reset to
   # base rather than erroring; this matches a stacked integration-branch flow.
+  # git worktree add prints "HEAD is now at …" to stdout; route it to stderr so
+  # stdout carries only the final path line (the caller's `| tail -1` contract).
   if [ "$REUSE" = "1" ]; then
-    git -C "$MAIN" worktree add -B "$BRANCH" "$WT_PATH" "$BASE"
+    git -C "$MAIN" worktree add -B "$BRANCH" "$WT_PATH" "$BASE" >&2
   else
-    git -C "$MAIN" worktree add -b "$BRANCH" "$WT_PATH" "$BASE"
+    git -C "$MAIN" worktree add -b "$BRANCH" "$WT_PATH" "$BASE" >&2
   fi
 fi
 
@@ -137,13 +142,17 @@ fi
 # missing secrets look like flaky/timeout test failures, not "config not found".
 # Symlinks (not copies) so edits in MAIN propagate; ln -sfn is idempotent.
 echo "setup-worktree: symlinking env files..." >&2
-(
-  cd "$MAIN"
-  git ls-files --others --ignored --exclude-standard
-) | grep -v '/node_modules/' | grep -v '^node_modules/' \
-  | grep -v '\.example$' \
-  | grep -E '(^|/)\.env(\.[^/]+)?$' \
-  | while read -r f; do
+# `|| true` guards the whole filter chain: any grep stage that selects no lines
+# exits 1, and under `set -o pipefail` that would abort the script — but "this
+# repo has no .env files to link" is a normal outcome, not a failure.
+{
+  (
+    cd "$MAIN"
+    git ls-files --others --ignored --exclude-standard
+  ) | grep -v '/node_modules/' | grep -v '^node_modules/' \
+    | grep -v '\.example$' \
+    | grep -E '(^|/)\.env(\.[^/]+)?$' || true
+} | while read -r f; do
       mkdir -p "$WT_PATH/$(dirname "$f")"
       ln -sfn "$MAIN/$f" "$WT_PATH/$f"
     done
