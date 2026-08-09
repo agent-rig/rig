@@ -57,6 +57,12 @@ set -euo pipefail
 GH="${RIG_TRACKER_GH:-gh}"
 JQ="${RIG_TRACKER_JQ:-jq}"
 
+# Candidate scan depth: how many rows to pull from each source (label queries and
+# the board column) BEFORE intersecting — deliberately independent of the result
+# --limit, so a small --limit (e.g. next's 1) can't truncate a source below the
+# overlap (see #66). Overridable for huge boards / tests.
+SCAN_DEPTH="${RIG_TRACKER_SCAN:-500}"
+
 die()  { echo "rig-tracker: $*" >&2; exit 1; }
 warn() { echo "rig-tracker: $*" >&2; }
 
@@ -140,6 +146,23 @@ gh_issue_numbers_by_status() {
       '.items[] | select((.[$k] // "") == $s) | .content.number // empty'
 }
 
+# Valid option names of the board's Status field (one per line). Same source
+# set-status resolves option ids from, so read validation matches write behavior.
+gh_status_option_names() {
+  require_board
+  "$GH" project field-list "$B_NUM" --owner "$B_OWNER" --format json \
+    | "$JQ" -r --arg f "$B_FIELD" '.fields[] | select(.name==$f) | .options[]?.name'
+}
+
+# Die unless <name> is an actual column (Status option) on the board. Prevents a
+# typo'd / renamed column from silently reading as "no work here" (see #67).
+assert_valid_status() {
+  local status="$1" names
+  names="$(gh_status_option_names)"
+  printf '%s\n' "$names" | grep -qxF -- "$status" && return 0
+  die "status '$status' is not a column on Project $B_OWNER/#$B_NUM (field '$B_FIELD'); valid: $(printf '%s' "$names" | tr '\n' ' ')"
+}
+
 # ---- verbs ------------------------------------------------------------------
 verb_select() {
   local status="" dispatchable=0 limit=50; local -a labels=()
@@ -167,15 +190,23 @@ verb_select() {
     [ -n "$status" ] || die "--dispatchable needs tracker.board.statusOptions.todo set"
   fi
 
+  # Validate the board column up front (#67): an unknown/typo'd status must fail
+  # loudly rather than silently intersect to [] (which reads as "no work here").
+  [ -n "$status" ] && assert_valid_status "$status"
+
+  # Pull SCAN_DEPTH candidates from each source, THEN return the first <limit>
+  # matches — never let --limit shrink a source below the overlap (see #66).
+  local scan=$(( limit > SCAN_DEPTH ? limit : SCAN_DEPTH ))
+
   # Candidate set by labels (carries labels[]). Empty labels = all open issues.
-  local by_labels; by_labels="$(gh_issues_by_labels "$limit" "${labels[@]}")"
+  local by_labels; by_labels="$(gh_issues_by_labels "$scan" "${labels[@]}")"
 
   if [ -z "$status" ]; then
     echo "$by_labels" | "$JQ" -c ".[:$limit]"; return
   fi
 
   # Intersect with the board's <status> column, and stamp the status.
-  local nums; nums="$(gh_issue_numbers_by_status "$status" "$limit" | "$JQ" -R . | "$JQ" -sc 'map(tonumber)')"
+  local nums; nums="$(gh_issue_numbers_by_status "$status" "$scan" | "$JQ" -R . | "$JQ" -sc 'map(tonumber)')"
   echo "$by_labels" | "$JQ" -c --argjson nums "$nums" --arg st "$status" \
     '[ .[] | select(.number as $n | $nums | index($n)) | .status = $st ] | .[:'"$limit"']'
 }

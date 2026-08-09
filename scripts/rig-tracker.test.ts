@@ -12,24 +12,39 @@ const SCRIPT = join(import.meta.dir, "rig-tracker.sh");
 const dir = mkdtempSync(join(tmpdir(), "rig-tracker-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-// A single mock `gh`: canned issue-list (honors --label), project item-list, and
-// pr view/edit (body comes from $MOCK_PR_BODY).
+// A single mock `gh`: canned issue-list (honors --label AND --limit), project
+// item-list (honors --limit), project field-list (Status options, for status
+// validation), and pr view/edit (body comes from $MOCK_PR_BODY).
+//
+// The board deliberately returns a NON-Todo item first, so a naive candidate
+// fetch that truncates by the result --limit (the #66 bug: next uses --limit 1)
+// drops the dispatchable item out before the column intersection.
 const mockGh = join(dir, "gh");
 writeFileSync(
   mockGh,
   `#!/usr/bin/env bash
 if [ "$1" = "issue" ] && [ "$2" = "list" ]; then
-  lbl=""; for ((i=1;i<=$#;i++)); do [ "\${!i}" = "--label" ] && { j=$((i+1)); lbl="\${!j}"; }; done
+  lbl=""; lim=1000
+  for ((i=1;i<=$#;i++)); do
+    [ "\${!i}" = "--label" ] && { j=$((i+1)); lbl="\${!j}"; }
+    [ "\${!i}" = "--limit" ] && { j=$((i+1)); lim="\${!j}"; }
+  done
   all='[{"number":10,"title":"Epic A","url":"u10","labels":[{"name":"epic"}],"state":"OPEN"},
        {"number":11,"title":"Sprint B","url":"u11","labels":[{"name":"sprint"}],"state":"OPEN"},
        {"number":12,"title":"Plain C","url":"u12","labels":[],"state":"OPEN"}]'
-  if [ -n "$lbl" ]; then echo "$all" | jq -c --arg l "$lbl" '[.[]|select(.labels[]?.name==$l)]'; else echo "$all"; fi
+  if [ -n "$lbl" ]; then echo "$all" | jq -c --arg l "$lbl" --argjson n "$lim" '[.[]|select(.labels[]?.name==$l)][:$n]';
+  else echo "$all" | jq -c --argjson n "$lim" '.[:$n]'; fi
   exit 0
 fi
 if [ "$1" = "project" ] && [ "$2" = "item-list" ]; then
-  echo '{"items":[{"id":"i10","content":{"number":10},"status":"Todo"},
-    {"id":"i11","content":{"number":11},"status":"Done"},
-    {"id":"i12","content":{"number":12},"status":"Todo"}]}'
+  lim=1000; for ((i=1;i<=$#;i++)); do [ "\${!i}" = "--limit" ] && { j=$((i+1)); lim="\${!j}"; }; done
+  echo '{"items":[{"id":"i11","content":{"number":11},"status":"Done"},
+    {"id":"i10","content":{"number":10},"status":"Todo"},
+    {"id":"i12","content":{"number":12},"status":"Todo"}]}' | jq -c --argjson n "$lim" '{items: (.items[:$n])}'
+  exit 0
+fi
+if [ "$1" = "project" ] && [ "$2" = "field-list" ]; then
+  echo '{"fields":[{"name":"Status","options":[{"name":"Todo","id":"o1"},{"name":"In Progress","id":"o2"},{"name":"In Review","id":"o3"},{"name":"Done","id":"o4"}]}]}'
   exit 0
 fi
 if [ "$1" = "pr" ] && [ "$2" = "view" ]; then echo "\${MOCK_PR_BODY:-a body}"; exit 0; fi
@@ -107,6 +122,32 @@ describe("rig-tracker select", () => {
   it("next = dispatchable, limit 1", () => {
     const r = run(config(GH), ["next"]);
     expect(JSON.parse(r.out)).toHaveLength(1);
+  });
+
+  it("next finds the dispatchable item even when it isn't first on the board (#66)", () => {
+    // Board yields a Done item first; the result --limit of 1 must NOT truncate
+    // the board/label candidates before the Todo∩shape intersection.
+    const r = run(config(GH), ["next"]);
+    expect(r.code).toBe(0);
+    const items = JSON.parse(r.out);
+    expect(items).toHaveLength(1);
+    expect(items[0].number).toBe(10);
+    expect(items[0].status).toBe("Todo");
+  });
+});
+
+describe("rig-tracker select --status validation (#67)", () => {
+  it("a column that doesn't exist on the board errors (not a silent [])", () => {
+    const r = run(config(GH), ["select", "--status", "Nope"]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("not a column");
+  });
+
+  it("a valid but empty column returns [] with exit 0 (distinct from a typo)", () => {
+    // "In Review" is a real board option with no items in it.
+    const r = run(config(GH), ["select", "--status", "In Review"]);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.out)).toEqual([]);
   });
 });
 
