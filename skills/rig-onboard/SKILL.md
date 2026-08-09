@@ -63,7 +63,8 @@ Read, don't ask. Gather:
   - `.claude/` or `CLAUDE.md` → **`claude-code`** (native: `.claude/skills/`,
     `.claude/agents/`).
   - `AGENTS.md`, `.cursor/`, `.github/copilot-instructions.md`, `GEMINI.md`, or
-    `.windsurf/` → **`agents-md`** (universal: a neutral `rig/` dir + a `## Rig`
+    `.windsurf/` → **`agents-md`** (universal: skills/agents/scripts under the
+    neutral `.rig/` dir — the same home as the config profile — plus a `## Rig`
     index injected into `AGENTS.md`; works for Codex, Cursor, Gemini, Amp, Zed,
     Jules…). If none detected, default to `claude-code`; if unsure, ask.
 - **Existing `.claude/`**: note any skills/agents already present so you can warn
@@ -119,15 +120,17 @@ skill/agent/catalog without diff-and-confirm.
   `<target>/.claude/agents/`; `RIG_DIR/scripts/*` → `<target>/.claude/scripts/`
   (`chmod +x`); and starter `REVIEWER.md` / `label-mapping.md` →
   `<target>/.claude/` **only if absent**.
-- **`agents-md`:** copy each chosen skill's `SKILL.md` → `<target>/rig/skills/<name>.md`;
-  agents → `<target>/rig/agents/`; scripts → `<target>/rig/scripts/`; starter docs →
-  `<target>/rig/` (if absent). Then inject an idempotent `## Rig` section into
+- **`agents-md`:** the payload lives under `.rig/` — the same dir as the shared
+  config profile, so there's one rig home (not a `rig/`-vs-`.rig/` pair). Copy
+  each chosen skill's `SKILL.md` → `<target>/.rig/skills/<name>.md`; agents →
+  `<target>/.rig/agents/`; scripts → `<target>/.rig/scripts/`; starter docs →
+  `<target>/.rig/` (if absent). Then inject an idempotent `## Rig` section into
   `<target>/AGENTS.md` (between `<!-- rig:start -->` / `<!-- rig:end -->`
   markers — replace any existing block, don't duplicate) that lists each
   installed skill with its one-line description and trigger phrases and says
-  "read `rig/skills/<name>.md` and follow it", plus a note that subagent-less
-  agents should adopt the `rig/agents/` personas inline. Set
-  `review.patternsFile` in the profile to `rig/REVIEWER.md` for this target.
+  "read `.rig/skills/<name>.md` and follow it", plus a note that subagent-less
+  agents should adopt the `.rig/agents/` personas inline. Set
+  `review.patternsFile` in the profile to `.rig/REVIEWER.md` for this target.
 
 ## 5. Offer CI (optional, gated on consent)
 

@@ -26,9 +26,9 @@ your agent's own conventions via **targets** (auto-detected from repo markers):
 | Target | Delivered as | Covers |
 |---|---|---|
 | **`claude-code`** | `.claude/skills/<name>/`, `.claude/agents/`, `.claude/scripts/` (native skills + subagents) | Claude Code |
-| **`agents-md`** | a neutral `rig/` dir + an idempotent `## Rig` index injected into `AGENTS.md` ("read `rig/skills/<name>.md` and follow it") | Codex, Cursor, Gemini, Amp, Zed, Jules — any `AGENTS.md`-reading agent |
+| **`agents-md`** | a neutral `.rig/` dir (alongside the shared config profile) + an idempotent `## Rig` index injected into `AGENTS.md` ("read `.rig/skills/<name>.md` and follow it") | Codex, Cursor, Gemini, Amp, Zed, Jules — any `AGENTS.md`-reading agent |
 
-For agents without subagents, the `rig/agents/` personas are adopted **inline**
+For agents without subagents, the `.rig/agents/` personas are adopted **inline**
 rather than delegated — the skills reference roles through the `agents.*`
 indirection, so they degrade cleanly. Pick targets explicitly with
 `install.sh --target claude-code,agents-md`, or let detection choose.

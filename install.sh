@@ -13,7 +13,7 @@
 #
 # Targets (adapters):
 #   claude-code  -> .claude/skills/<name>/, .claude/agents/, .claude/scripts/
-#   agents-md    -> rig/skills/<name>.md + rig/agents/ + rig/scripts/, and an
+#   agents-md    -> .rig/skills/<name>.md + .rig/agents/ + .rig/scripts/, and an
 #                   idempotent "## Rig" index injected into AGENTS.md. Works for
 #                   any AGENTS.md-reading agent (Codex, Cursor, Gemini, Amp,
 #                   Zed, Jules, ...).
@@ -131,21 +131,21 @@ skill_desc() {   # extract the frontmatter description of a skill, unquoted
 }
 
 install_agents_md() {
-  echo "[agents-md] skills -> rig/skills/*.md"
+  echo "[agents-md] skills -> .rig/skills/*.md"
   for s in "${SKILLS[@]}"; do
-    if [[ -f "$RIG_DIR/skills/$s/SKILL.md" ]]; then copy_no_clobber "$RIG_DIR/skills/$s/SKILL.md" "$TARGET/rig/skills/$s.md"
+    if [[ -f "$RIG_DIR/skills/$s/SKILL.md" ]]; then copy_no_clobber "$RIG_DIR/skills/$s/SKILL.md" "$TARGET/.rig/skills/$s.md"
     else echo "  unknown skill: $s" >&2; fi
   done
-  echo "[agents-md] agents -> rig/agents/, scripts -> rig/scripts/"
-  for a in "$RIG_DIR"/agents/*.md; do [[ -e "$a" ]] || continue; copy_no_clobber "$a" "$TARGET/rig/agents/$(basename "$a")"; done
+  echo "[agents-md] agents -> .rig/agents/, scripts -> .rig/scripts/"
+  for a in "$RIG_DIR"/agents/*.md; do [[ -e "$a" ]] || continue; copy_no_clobber "$a" "$TARGET/.rig/agents/$(basename "$a")"; done
   for f in "$RIG_DIR"/scripts/*; do
     [[ -e "$f" ]] || continue
     if [[ "$f" == *.test.* ]]; then continue; fi   # kit-internal tests aren't shipped
-    copy_no_clobber "$f" "$TARGET/rig/scripts/$(basename "$f")"
+    copy_no_clobber "$f" "$TARGET/.rig/scripts/$(basename "$f")"
   done
-  chmod +x "$TARGET"/rig/scripts/*.sh 2>/dev/null || true
+  chmod +x "$TARGET"/.rig/scripts/*.sh 2>/dev/null || true
   for doc in REVIEWER.md label-mapping.md; do
-    if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/rig/$doc"; fi
+    if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/.rig/$doc"; fi
   done
 
   # Build the index block.
@@ -160,14 +160,14 @@ install_agents_md() {
     for s in "${SKILLS[@]}"; do
       [[ -f "$RIG_DIR/skills/$s/SKILL.md" ]] || continue
       echo "- **$s** — $(skill_desc "$s")"
-      echo "  → read \`rig/skills/$s.md\` and follow it."
+      echo "  → read \`.rig/skills/$s.md\` and follow it."
     done
     echo
-    echo "**Roles/subagents:** personas live in \`rig/agents/\` (rig-reviewer, rig-coder,"
+    echo "**Roles/subagents:** personas live in \`.rig/agents/\` (rig-reviewer, rig-coder,"
     echo "rig-architect, rig-qa, rig-debugger). If your agent supports subagents,"
     echo "delegate to the named persona; otherwise adopt that persona's instructions"
-    echo "inline. Helper scripts are in \`rig/scripts/\`; review patterns in"
-    echo "\`rig/REVIEWER.md\` (set \`review.patternsFile\` accordingly)."
+    echo "inline. Helper scripts are in \`.rig/scripts/\`; review patterns in"
+    echo "\`.rig/REVIEWER.md\` (set \`review.patternsFile\` accordingly)."
   )"
 
   local F="$TARGET/AGENTS.md"
