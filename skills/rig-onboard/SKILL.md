@@ -62,13 +62,19 @@ Read, don't ask. Gather:
   from repo markers to delivery **targets** (may be more than one):
   - `.claude/` or `CLAUDE.md` → **`claude-code`** (native: `.claude/skills/`,
     `.claude/agents/`).
-  - `AGENTS.md`, `.cursor/`, `.github/copilot-instructions.md`, `GEMINI.md`, or
-    `.windsurf/` → **`agents-md`** (universal: skills/agents/scripts under the
-    neutral `.rig/` dir — the same home as the config profile — plus a `## Rig`
-    index injected into `AGENTS.md`; works for Codex, Cursor, Gemini, Amp, Zed,
-    Jules…). If none detected, default to `claude-code`; if unsure, ask.
-- **Existing `.claude/`**: note any skills/agents already present so you can warn
-  before overwriting.
+  - `AGENTS.md`, `.agents/`, `.cursor/`, `.github/copilot-instructions.md`,
+    `GEMINI.md`, or `.windsurf/` → **`agents-md`** (universal: skills land in
+    `.agents/skills/<name>/` — the standard cross-agent "Agent Skills" layout
+    that Codex, Cursor, Gemini CLI, Copilot, and Rovo Dev auto-discover
+    natively, so no per-skill index file is needed; agents/scripts/review
+    patterns stay under `.rig/`, the same home as the config profile, since
+    nothing else standardizes those; plus a minimal `## Rig` pointer block
+    injected into `AGENTS.md`). If none detected, default to `claude-code`; if
+    unsure, ask.
+- **Existing `.claude/` or `.agents/skills/`**: note any skills/agents already
+  present so you can warn before overwriting. Also check for a legacy
+  `.rig/skills/*.md` flat-file layout from a pre-`.agents/skills/` onboarding —
+  see "Re-running" below.
 
 Summarize what you found in a short table before moving on.
 
@@ -120,17 +126,23 @@ skill/agent/catalog without diff-and-confirm.
   `<target>/.claude/agents/`; `RIG_DIR/scripts/*` → `<target>/.claude/scripts/`
   (`chmod +x`); and starter `REVIEWER.md` / `label-mapping.md` →
   `<target>/.claude/` **only if absent**.
-- **`agents-md`:** the payload lives under `.rig/` — the same dir as the shared
-  config profile, so there's one rig home (not a `rig/`-vs-`.rig/` pair). Copy
-  each chosen skill's `SKILL.md` → `<target>/.rig/skills/<name>.md`; agents →
-  `<target>/.rig/agents/`; scripts → `<target>/.rig/scripts/`; starter docs →
-  `<target>/.rig/` (if absent). Then inject an idempotent `## Rig` section into
-  `<target>/AGENTS.md` (between `<!-- rig:start -->` / `<!-- rig:end -->`
-  markers — replace any existing block, don't duplicate) that lists each
-  installed skill with its one-line description and trigger phrases and says
-  "read `.rig/skills/<name>.md` and follow it", plus a note that subagent-less
-  agents should adopt the `.rig/agents/` personas inline. Set
-  `review.patternsFile` in the profile to `.rig/REVIEWER.md` for this target.
+- **`agents-md`:** skills are delivered as full directories — copy each chosen
+  `RIG_DIR/skills/<name>/` → `<target>/.agents/skills/<name>/` (same shape as
+  the `claude-code` copy, just a different root). This is the location the
+  target agent already scans on its own, so **no per-skill index or "read and
+  follow" pointer is written** — the agent auto-discovers each skill from its
+  `SKILL.md` frontmatter `description`. Everything the standard doesn't cover
+  keeps living under `.rig/` (the same dir as the shared config profile, so
+  there's still one rig home for non-skill pieces): agents →
+  `<target>/.rig/agents/`; scripts → `<target>/.rig/scripts/`; starter docs
+  (`REVIEWER.md`, `label-mapping.md`) → `<target>/.rig/` (if absent). Then
+  inject/refresh an idempotent `## Rig` section into `<target>/AGENTS.md`
+  (between `<!-- rig:start -->` / `<!-- rig:end -->` markers — replace any
+  existing block, don't duplicate). Keep this block short: a pointer to
+  `.rig/config.json` for project settings, and a note that subagent-less
+  agents should adopt the `.rig/agents/` personas inline — it no longer
+  enumerates skills. Set `review.patternsFile` in the profile to
+  `.rig/REVIEWER.md` for this target.
 
 ## 5. Offer CI (optional, gated on consent)
 
@@ -157,3 +169,14 @@ secrets setup you can't do for them). See `ci/README.md#review-bot-bundle`.
 Onboarding is idempotent-ish: re-running detects the existing
 `.rig/config.json`, offers to update it, and only copies pieces that are
 missing or that the user explicitly asks to refresh. Use it to pull kit updates.
+
+Projects onboarded before this change may still have the old flat
+`.rig/skills/<name>.md` files and a `## Rig` block that lists them by name.
+Re-running onboarding delivers skills into `.agents/skills/<name>/` and
+replaces the `## Rig` block (it's idempotent between the markers), but it will
+**not** delete the old `.rig/skills/*.md` files on its own — `copy_no_clobber`
+and the rest of the install path only ever add files, never remove them. Point
+this out in your Step 1 summary and Step 6 wrap-up, and — because you're
+interactive and a human is present to confirm — offer to delete the now-dead
+`.rig/skills/` directory for them. Don't delete it silently, and don't do this
+from `install.sh` (non-interactive, no consent to delete).
