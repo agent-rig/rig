@@ -10,7 +10,7 @@ read at runtime from a small **project profile** you fill in during onboarding.
 
 | Layer | Contents | How it's delivered |
 |---|---|---|
-| **Skills** (`skills/`) | `rig-doctor`, `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-plan`, `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` |
+| **Skills** (`skills/`) | `rig-doctor`, `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-plan`, `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` (or `.agents/skills/` for non-Claude agents — see "Works with your agent" below) |
 | **Agents** (`agents/`) | `rig-debugger`, `rig-reviewer`, `rig-architect`, `rig-qa`, `rig-coder` | Copied into `<project>/.claude/agents/` |
 | **Support docs** (`templates/`) | starter `REVIEWER.md` (+ `REVIEWER.scope-template.md`), `label-mapping.md` | Copied into `<project>/.claude/` (only if absent) |
 | **Scripts** (`scripts/`) | `setup-worktree.sh`, `remove-worktree.sh`, `mint-gh-app-token.sh`, `scope-reviewer.ts`, `set-session-name.sh` (Claude-only) | Copied into `<project>/.claude/scripts/` |
@@ -26,7 +26,7 @@ your agent's own conventions via **targets** (auto-detected from repo markers):
 | Target | Delivered as | Covers |
 |---|---|---|
 | **`claude-code`** | `.claude/skills/<name>/`, `.claude/agents/`, `.claude/scripts/` (native skills + subagents) | Claude Code |
-| **`agents-md`** | a neutral `.rig/` dir (alongside the shared config profile) + an idempotent `## Rig` index injected into `AGENTS.md` ("read `.rig/skills/<name>.md` and follow it") | Codex, Cursor, Gemini, Amp, Zed, Jules — any `AGENTS.md`-reading agent |
+| **`agents-md`** | `.agents/skills/<name>/` — the standard cross-agent Agent Skills layout, auto-discovered natively (no index needed) — plus `.rig/agents/`, `.rig/scripts/`, `.rig/REVIEWER.md` for the pieces the standard doesn't cover, and a minimal `## Rig` pointer block injected into `AGENTS.md` (config + persona adoption) | Codex, Cursor, Gemini CLI, Copilot, Rovo Dev — any agent that scans `.agents/skills/` or reads `AGENTS.md` |
 
 For agents without subagents, the `.rig/agents/` personas are adopted **inline**
 rather than delegated — the skills reference roles through the `agents.*`

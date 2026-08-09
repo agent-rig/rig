@@ -13,10 +13,14 @@
 #
 # Targets (adapters):
 #   claude-code  -> .claude/skills/<name>/, .claude/agents/, .claude/scripts/
-#   agents-md    -> .rig/skills/<name>.md + .rig/agents/ + .rig/scripts/, and an
-#                   idempotent "## Rig" index injected into AGENTS.md. Works for
-#                   any AGENTS.md-reading agent (Codex, Cursor, Gemini, Amp,
-#                   Zed, Jules, ...).
+#   agents-md    -> .agents/skills/<name>/ (the cross-agent Agent Skills
+#                   standard, auto-discovered natively by Codex, Cursor,
+#                   Gemini CLI, Copilot, Rovo Dev, ...), plus .rig/agents/,
+#                   .rig/scripts/, .rig/REVIEWER.md for the pieces the
+#                   standard doesn't cover, and a minimal idempotent "## Rig"
+#                   pointer block injected into AGENTS.md (config profile +
+#                   persona-adoption note - no per-skill listing, since
+#                   .agents/skills/ is self-discovered).
 #
 # With no --target, the target agent(s) are auto-detected from repo markers
 # (falling back to claude-code). Repeat/comma-separate to install several.
@@ -64,8 +68,9 @@ fi
 detect_targets() {
   local found=()
   if [[ -d "$TARGET/.claude" || -f "$TARGET/CLAUDE.md" ]]; then found+=(claude-code); fi
-  if [[ -f "$TARGET/AGENTS.md" || -d "$TARGET/.cursor" || -f "$TARGET/.github/copilot-instructions.md" \
-        || -f "$TARGET/GEMINI.md" || -d "$TARGET/.windsurf" ]]; then found+=(agents-md); fi
+  if [[ -f "$TARGET/AGENTS.md" || -d "$TARGET/.agents" || -d "$TARGET/.cursor" \
+        || -f "$TARGET/.github/copilot-instructions.md" || -f "$TARGET/GEMINI.md" \
+        || -d "$TARGET/.windsurf" ]]; then found+=(agents-md); fi
   if [[ ${#found[@]} -eq 0 ]]; then found=(claude-code); fi   # safe default
   printf '%s\n' "${found[@]}"
 }
@@ -125,15 +130,10 @@ install_claude_code() {
 }
 
 # --- Adapter: agents-md (universal) ------------------------------------------
-skill_desc() {   # extract the frontmatter description of a skill, unquoted
-  grep -m1 '^description:' "$RIG_DIR/skills/$1/SKILL.md" 2>/dev/null \
-    | sed -E 's/^description:[[:space:]]*//; s/^"//; s/"[[:space:]]*$//' || true
-}
-
 install_agents_md() {
-  echo "[agents-md] skills -> .rig/skills/*.md"
+  echo "[agents-md] skills -> .agents/skills/<name>/ (cross-agent Agent Skills standard)"
   for s in "${SKILLS[@]}"; do
-    if [[ -f "$RIG_DIR/skills/$s/SKILL.md" ]]; then copy_no_clobber "$RIG_DIR/skills/$s/SKILL.md" "$TARGET/.rig/skills/$s.md"
+    if [[ -d "$RIG_DIR/skills/$s" ]]; then copy_no_clobber "$RIG_DIR/skills/$s" "$TARGET/.agents/skills/$s"
     else echo "  unknown skill: $s" >&2; fi
   done
   echo "[agents-md] agents -> .rig/agents/, scripts -> .rig/scripts/"
@@ -153,15 +153,13 @@ install_agents_md() {
   block="$(
     echo "## Rig"
     echo
-    echo "This project uses [Rig](https://github.com/agent-rig/rig) skills — self-contained"
-    echo "markdown procedures. **When a request matches a skill's triggers, read that"
-    echo "file and follow it.** Project config lives in \`.rig/config.json\`."
+    echo "This project uses [Rig](https://github.com/agent-rig/rig) skills, delivered as"
+    echo "standard Agent Skills under \`.agents/skills/\` — your agent discovers and"
+    echo "invokes them automatically from each skill's trigger description; nothing to"
+    echo "do here to use them."
     echo
-    for s in "${SKILLS[@]}"; do
-      [[ -f "$RIG_DIR/skills/$s/SKILL.md" ]] || continue
-      echo "- **$s** — $(skill_desc "$s")"
-      echo "  → read \`.rig/skills/$s.md\` and follow it."
-    done
+    echo "Project config lives in \`.rig/config.json\` — read it for the test command,"
+    echo "base branch, tracker, and review-bot settings before running any skill."
     echo
     echo "**Roles/subagents:** personas live in \`.rig/agents/\` (rig-reviewer, rig-coder,"
     echo "rig-architect, rig-qa, rig-debugger). If your agent supports subagents,"
