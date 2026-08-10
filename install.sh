@@ -94,6 +94,9 @@ copy_no_clobber() {
 }
 
 # --- Shared: project profile (agent-agnostic) --------------------------------
+# The example profile carries .claude/ paths for the two support docs. Without
+# the claude-code target those files were installed under .rig/, so ship the
+# profile pointing where the docs actually are rather than at a dead path.
 write_profile() {
   if [[ -e "$TARGET/.rig/config.json" ]]; then
     echo "  skip (exists): .rig/config.json"
@@ -101,6 +104,13 @@ write_profile() {
     mkdir -p "$TARGET/.rig"
     cp "$RIG_DIR/rig.config.example.json" "$TARGET/.rig/config.json"
     cp "$RIG_DIR/rig.schema.json" "$TARGET/.rig/schema.json"
+    if [[ " ${TARGETS[*]} " != *" claude-code "* ]]; then
+      sed -i.bak -e 's|"\.claude/REVIEWER\.md"|".rig/REVIEWER.md"|' \
+                 -e 's|"\.claude/label-mapping\.md"|".rig/label-mapping.md"|' \
+                 "$TARGET/.rig/config.json"
+      rm -f "$TARGET/.rig/config.json.bak"
+      echo "  (no claude-code target: patternsFile/labelMapFile point at .rig/)"
+    fi
     echo "  wrote: .rig/config.json  (EDIT THIS — it currently holds the example values)"
   fi
 }
