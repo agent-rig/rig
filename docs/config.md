@@ -64,7 +64,7 @@ Set `provider: "none"` to strip all ticket steps from `ticket`/`sprint`/review f
 ## `style`
 | Key | Default | Meaning |
 |---|---|---|
-| `guideFile` | `.claude/STYLE.md` | The house style for prose agents write — PR bodies, tickets, review findings, plans, hand-backs. Rig ships a starter based on the [Google developer documentation style guide](https://developers.google.com/style). Every persona reads it before writing; the rules also hold inline if the file is missing. |
+| `guideFile` | `.claude/STYLE.md` | The house style for prose agents write — PR bodies, tickets, review findings, plans, hand-backs. Rig ships a starter based on the [Google developer documentation style guide](https://developers.google.com/style). Every persona reads it before writing; the rules also hold inline if the file is missing. `rig-proof` walks it against a draft, and `scripts/check-style.ts` harvests its banned-term lists to grep for mechanically — so the guide is the only place style rules live. |
 
 ## `agents`
 Optional map from the kit's canonical role → the agent name registered in your

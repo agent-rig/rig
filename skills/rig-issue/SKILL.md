@@ -87,7 +87,9 @@ filed it. Write the title as an imperative outcome — `Add rate limiting to
 /invoices`, not `Rate limiting`. Write the body to `style.guideFile` (default
 `.claude/STYLE.md`): goal first, then acceptance criteria as a checklist someone
 can verify item by item, then the files to touch and the ordered steps. One idea
-per sentence, active voice, present tense, no filler.
+per sentence, active voice, present tense, no filler. Before filing a
+description longer than a couple of sentences, run `/rig-proof find` on the
+draft and apply what it returns.
 
 ### `move <id> <status>`
 

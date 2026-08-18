@@ -11,8 +11,8 @@ guide](https://developers.google.com/style) — the
 version. Where this file and Google disagree, this file wins; where this file is
 silent, Google decides.
 
-This is a starter. Keep it, prune it, or add the conventions your team actually
-argues about in review.
+This is a starter. Keep it, prune it, or add the conventions your team argues
+about in review.
 
 > **Scope.** Every rig persona and skill writes to this style. It governs prose,
 > not code: source code follows the conventions of the code around it.
@@ -159,8 +159,8 @@ it's red.
 ## Shapes for the artifacts rig produces
 
 **Commit message.** Conventional-commit subject in the imperative, under ~72
-characters, no trailing period. Body only when the *why* isn't obvious from the
-diff.
+characters, no trailing period. Add a body only when the diff doesn't already
+show the *why*.
 
 `fix(auth): scope token lookup to the requesting tenant`
 

@@ -150,6 +150,10 @@ into logging"). Confirm the time-box before starting.
    - **Open questions** — anything still unknown that a later spike or the
      implementation would need to resolve.
 
+   Proof it before it goes anywhere: run `/rig-proof find` on the draft and
+   apply what comes back. The writeup is the deliverable, and it outlives the
+   spike.
+
    If a tracking ticket was created in step 2, post the writeup back to it
    (`mcp__claude_ai_Linear__save_comment` for Linear, `gh issue comment` for
    GitHub). Surface it in chat regardless.
