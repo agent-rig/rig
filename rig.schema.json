@@ -117,6 +117,14 @@
         "maxRounds": { "type": "integer", "default": 5, "description": "Max fix<->re-review rounds before handing back to a human." }
       }
     },
+    "style": {
+      "type": "object",
+      "description": "House style for the prose agents write (PR bodies, tickets, review findings, plans, hand-backs). Consumed by every persona and by the skills that emit written artifacts.",
+      "additionalProperties": false,
+      "properties": {
+        "guideFile": { "type": "string", "default": ".claude/STYLE.md", "description": "Path to the project's writing-style guide. Rig ships a starter based on the Google developer documentation style guide." }
+      }
+    },
     "agents": {
       "type": "object",
       "description": "Optional overrides mapping the kit's canonical agent roles to the agent names registered in this project. Defaults to the kit's own agents, rig-<role> (e.g. debugger->rig-debugger). Set a value only to point a role at a differently-named agent.",

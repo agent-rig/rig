@@ -41,6 +41,8 @@ Reads `.rig/config.json`:
   hardcode; derive from the git remote if unset.
 - `agents.reviewer` / `agents.coder` — the project's names for those roles
   (default `rig-<role>`).
+- `style.guideFile` — the writing style for findings (default
+  `.claude/STYLE.md`).
 
 **Scope invariants (per-subsystem `REVIEWER.md`).** Beyond the root catalog, a
 subsystem may carry its own `REVIEWER.md` colocated with its code — concrete
@@ -126,6 +128,17 @@ If invoked from another skill, the caller may thread `{base}`, `{ticket-id}`,
    - `clean — 0 findings vs {base} (2 passes)`
    - `findings — N P0/P1, M P2/P3` — each with file:line, pattern number,
      severity, and `[pass 1]`/`[pass 2]`.
+
+   Each finding is one entry in one order — severity, location, the defect, the
+   consequence, the fix — per `style.guideFile` (default `.claude/STYLE.md`):
+
+   > P1 — `api/invoices.ts:88`: the lookup uses the raw request ID, so any tenant
+   > can read another tenant's invoice. Scope it to `session.tenantId` and add a
+   > negative test.
+
+   Address the code, not the author. Don't hedge a P0 into a suggestion, and
+   don't pad a clean report to look thorough — if the diff is clean, say so in
+   one line and stop.
 
    P0/P1 block (don't push). P2/P3 ship-with-a-note. To fix them, hand off to
    `fix --source local`.

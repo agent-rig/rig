@@ -27,6 +27,8 @@ Reads `.rig/config.json` (defaults in parentheses):
   added to the board via the `rig-tracker` adapter.
 - `sourceScope[0]` — the codebase area to sanity-check feasibility against.
 - `agents.architect` (default `rig-architect`) — drives the decomposition.
+- `style.guideFile` (`.claude/STYLE.md`) — how the plan and every ticket body
+  it materializes are written.
 
 Delegates ticket creation to `/rig-epic` (epic chunks), `/rig-sprint` (sprint
 chunks), and `/rig-issue` (singletons). Hands execution to `/rig-epic start` /
@@ -64,6 +66,12 @@ chunks), and `/rig-issue` (singletons). Hands execution to `/rig-epic start` /
    each milestone/section → its shape → its tickets (`title · shape · blockedBy`).
    This is the moment the human reviews the **plan**, not the keystrokes. Offer
    to adjust. **Create nothing until approved.**
+
+   A plan a human can't skim is a plan they can't approve. Write it to
+   `style.guideFile` (default `.claude/STYLE.md`): recommendation first, then the
+   tree, then the tradeoffs you rejected and why. Ticket titles are imperative
+   outcomes; acceptance criteria are testable. Flag anything you need settled
+   with **Decision needed:**.
 
 4. **Materialize — on approval — without starting.** For each chunk:
    - **epic** → create the parent + children following `/rig-epic plan`'s

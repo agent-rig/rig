@@ -16,17 +16,17 @@
 #   agents-md    -> .agents/skills/<name>/ (the cross-agent Agent Skills
 #                   standard, auto-discovered natively by Codex, Cursor,
 #                   Gemini CLI, Copilot, Rovo Dev, ...), plus .rig/agents/,
-#                   .rig/scripts/, .rig/REVIEWER.md for the pieces the
-#                   standard doesn't cover, and a minimal idempotent "## Rig"
-#                   pointer block injected into AGENTS.md (config profile +
+#                   .rig/scripts/, .rig/REVIEWER.md, .rig/STYLE.md for the
+#                   pieces the standard doesn't cover, and a minimal idempotent
+#                   "## Rig" pointer block injected into AGENTS.md (config profile +
 #                   persona-adoption note - no per-skill listing, since
 #                   .agents/skills/ is self-discovered).
 #   pi           -> .agents/skills/<name>/ (pi discovers these natively), plus
 #                   .pi/agents/<name>.md (personas re-framed in pi-subagents
 #                   frontmatter), .pi/prompts/rig.md (the /rig dispatcher),
 #                   .pi/settings.json registering npm:pi-subagents, and
-#                   .rig/scripts/ + .rig/REVIEWER.md for the rest. See
-#                   docs/pi.md.
+#                   .rig/scripts/ + .rig/REVIEWER.md + .rig/STYLE.md for the
+#                   rest. See docs/pi.md.
 #
 # With no --target, the target agent(s) are auto-detected from repo markers
 # (falling back to claude-code). Repeat/comma-separate to install several.
@@ -134,7 +134,7 @@ install_claude_code() {
   done
   chmod +x "$TARGET"/.claude/scripts/*.sh 2>/dev/null || true
   echo "[claude-code] support docs (only if absent) -> .claude/"
-  for doc in REVIEWER.md label-mapping.md; do
+  for doc in REVIEWER.md STYLE.md label-mapping.md; do
     if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/.claude/$doc"; fi
   done
 }
@@ -154,7 +154,7 @@ install_agents_md() {
     copy_no_clobber "$f" "$TARGET/.rig/scripts/$(basename "$f")"
   done
   chmod +x "$TARGET"/.rig/scripts/*.sh 2>/dev/null || true
-  for doc in REVIEWER.md label-mapping.md; do
+  for doc in REVIEWER.md STYLE.md label-mapping.md; do
     if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/.rig/$doc"; fi
   done
 
@@ -214,7 +214,7 @@ install_pi() {
     copy_no_clobber "$f" "$TARGET/.rig/scripts/$(basename "$f")"
   done
   chmod +x "$TARGET"/.rig/scripts/*.sh 2>/dev/null || true
-  for doc in REVIEWER.md label-mapping.md; do
+  for doc in REVIEWER.md STYLE.md label-mapping.md; do
     if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/.rig/$doc"; fi
   done
 
@@ -262,6 +262,13 @@ write_agents_md_block() {
     echo "delegate to the named persona; otherwise adopt that persona's instructions"
     echo "inline. Helper scripts are in \`.rig/scripts/\`; review patterns in"
     echo "\`.rig/REVIEWER.md\` (set \`review.patternsFile\` accordingly)."
+    echo
+    echo "**Writing style:** anything you write for a human — PR bodies, ticket"
+    echo "descriptions, review findings, plans, status hand-backs — follows"
+    echo "\`.rig/STYLE.md\` (set \`style.guideFile\` accordingly). It follows the Google"
+    echo "developer documentation style guide: answer first, one idea per sentence,"
+    echo "active voice, present tense, concrete nouns with \`file:line\` evidence, no"
+    echo "filler or jargon. Read it before writing prose."
     if [[ "$DID_PI" == 1 ]]; then
       echo
       echo "**In pi:** run a skill with role delegation wired up via \`/rig <skill> [args]\`"

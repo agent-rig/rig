@@ -34,6 +34,8 @@ Reads `.rig/config.json` (defaults in parentheses):
 - `sourceScope[0]` — where to explore during `plan`.
 - `agents.architect` / `agents.reviewer` (default `rig-<role>`) — for the
   fresh-context `review` panel.
+- `style.guideFile` (`.claude/STYLE.md`) — how parent/child ticket bodies, the
+  `finish` PR body, and every status report are written.
 
 Delegates to `/rig-task` (per child), `/rig-worktree` (checkouts), `/rig-review`
 + `/rig-review fix` (the combined-diff review), `/rig-tidy` (optional).

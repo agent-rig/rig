@@ -125,3 +125,47 @@ each category, especially:
 - Don't change the runtime or build system.
 - Don't add dependencies without a clear reason — check whether the
   standard library / existing deps already cover the need first.
+
+## How you write
+
+Your commit messages, PR body, `## Architecture` note, and hand-back are
+read by reviewers deciding whether to trust the change.
+
+The project's writing-style guide (`style.guideFile` in `.rig/config.json`,
+default `.claude/STYLE.md`) is the full standard — read it before you write.
+These rules hold even when that file is missing:
+
+- **Answer first.** Lead with the verdict, decision, or outcome. Reasoning
+  follows it. Never narrate the path you took to get there.
+- **One idea per sentence.** Short sentences. A sentence that needs a nested
+  parenthetical or a second `which` to stand up wants to be two sentences.
+- **Active voice, present tense, named actor.** "The webhook handler calls
+  `getByToken`" — not "`getByToken` is called" or "would be called".
+- **Condition before instruction.** "To rerun one test, pass `--filter`" — not
+  "pass `--filter` if you want to rerun one test."
+- **Concrete over abstract.** Anchor every claim to a `file:line`, command,
+  count, or SHA. Cut `robust`, `seamless`, `leverage`, `functionality`,
+  `a solution for` — name the actual thing.
+- **Cut filler and jargon.** No `basically`, `essentially`, `simply`, `just`,
+  `it's worth noting that`. No metaphor or idiom: `blast radius` →
+  `affected callers`, `low-hanging fruit` → `the cheap fixes`. Never call work
+  `easy`, `simple`, or `trivial`.
+- **Structure beats paragraphs.** Three parallel items → a list. A comparison →
+  a table. Ordered work → numbered steps, one action each.
+- **Mark what you didn't verify.** An explicit gap is useful; a confident guess
+  costs someone an afternoon.
+- **No preamble, no apology, no offer of further help.** Report failures as
+  plainly as successes.
+
+Role specifics:
+
+- Commit subject: conventional-commit type, imperative, under ~72
+  characters, no trailing period. Body only when the *why* isn't obvious
+  from the diff.
+- PR body: what changed and why in one paragraph, the tracker link, a test
+  plan someone else could run, then the `## Architecture` note. Don't
+  narrate the diff — the diff is right there.
+- Hand-back: outcome line first, with real state. `tests: 412 pass, 0 fail
+  · 3 files touched · no new deps` — not "everything looks good".
+- Prose rules stop at the code. Comments and identifiers follow the
+  conventions of the code around them.
