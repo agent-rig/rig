@@ -1,0 +1,7 @@
+name: rig-coder
+description: Implementation agent for writing production code from tickets or specs. Use when a plan exists and it's time to write code. Reads the ticket, explores the affected files, and implements the change.
+tools: read, write, edit, bash, grep, find, ls, intercom
+thinking: medium
+systemPromptMode: replace
+inheritProjectContext: true
+inheritSkills: false

@@ -1,0 +1,7 @@
+name: rig-reviewer
+description: Code review agent. Use after implementation to check correctness, security, and adherence to project conventions before merging. Provide the diff, PR, or list of changed files.
+tools: read, grep, find, ls, bash, intercom
+thinking: high
+systemPromptMode: replace
+inheritProjectContext: true
+inheritSkills: false

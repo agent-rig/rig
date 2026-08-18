@@ -2,11 +2,22 @@
   "name": "rig-dev",
   "private": true,
   "type": "module",
-  "description": "Dev-only toolchain for the Rig kit repo (typecheck + tests). NOT vendored into consumer projects — install.sh copies only skills/, agents/, scripts/, smithers/ content.",
+  "description": "Dev-only toolchain for the Rig kit repo (typecheck + tests). NOT vendored into consumer projects — install.sh copies only skills/, agents/, scripts/, smithers/ content. The 'pi' key additionally makes this repo installable as a pi package (pi install git:github.com/agent-rig/rig) — see docs/pi.md.",
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./pi/prompts"
+    ]
+  },
   "scripts": {
     "prepare-smithers": "bash tooling/prepare-smithers-typecheck.sh",
     "typecheck": "bun run prepare-smithers && tsc --noEmit -p tsconfig.json",
-    "test": "bun test scripts/",
+    "test": "bun test scripts/ tooling/",
     "ci": "bun run typecheck && bun run test"
   },
   "devDependencies": {

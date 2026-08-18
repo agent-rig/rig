@@ -21,6 +21,12 @@
 #                   pointer block injected into AGENTS.md (config profile +
 #                   persona-adoption note - no per-skill listing, since
 #                   .agents/skills/ is self-discovered).
+#   pi           -> .agents/skills/<name>/ (pi discovers these natively), plus
+#                   .pi/agents/<name>.md (personas re-framed in pi-subagents
+#                   frontmatter), .pi/prompts/rig.md (the /rig dispatcher),
+#                   .pi/settings.json registering npm:pi-subagents, and
+#                   .rig/scripts/ + .rig/REVIEWER.md for the rest. See
+#                   docs/pi.md.
 #
 # With no --target, the target agent(s) are auto-detected from repo markers
 # (falling back to claude-code). Repeat/comma-separate to install several.
@@ -37,7 +43,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGETS_CSV+="${TARGETS_CSV:+,}$2"; shift 2 ;;
     --target=*) TARGETS_CSV+="${TARGETS_CSV:+,}${1#--target=}"; shift ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
     *) POSARGS+=("$1"); shift ;;
   esac
 done
@@ -71,6 +77,7 @@ detect_targets() {
   if [[ -f "$TARGET/AGENTS.md" || -d "$TARGET/.agents" || -d "$TARGET/.cursor" \
         || -f "$TARGET/.github/copilot-instructions.md" || -f "$TARGET/GEMINI.md" \
         || -d "$TARGET/.windsurf" ]]; then found+=(agents-md); fi
+  if [[ -d "$TARGET/.pi" ]]; then found+=(pi); fi
   if [[ ${#found[@]} -eq 0 ]]; then found=(claude-code); fi   # safe default
   printf '%s\n' "${found[@]}"
 }
@@ -81,6 +88,9 @@ else
   mapfile -t TARGETS < <(detect_targets)
   echo "No --target given; auto-detected: ${TARGETS[*]}"
 fi
+
+DID_AGENTS_MD=0   # some target delivered .agents/skills/ -> AGENTS.md needs the pointer block
+DID_PI=0          # the pi target ran -> the block mentions .pi/ and /rig
 
 copy_no_clobber() {
   local src="$1" dst="$2"
@@ -148,7 +158,93 @@ install_agents_md() {
     if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/.rig/$doc"; fi
   done
 
-  # Build the index block.
+  DID_AGENTS_MD=1
+}
+
+# --- Adapter: pi (pi.dev + pi-subagents) -------------------------------------
+# Assembles .pi/agents/<name>.md from the shared persona body (agents/<name>.md)
+# and the pi-specific frontmatter (pi/agents/<name>.yml). The body is never
+# duplicated in the kit — see pi/agents/README.md for the contract.
+assemble_pi_agent() {
+  local body_src="$1" fm_src="$2" dst="$3"
+  if [[ -e "$dst" ]]; then
+    echo "  skip (exists): ${dst#$TARGET/}"
+    return
+  fi
+  mkdir -p "$(dirname "$dst")"
+  {
+    printf -- '---\n'
+    cat "$fm_src"
+    printf -- '---\n\n'
+    # Everything after the source persona's own closing frontmatter fence.
+    awk 'n>=2 {print} /^---[[:space:]]*$/ && n<2 {n++}' "$body_src"
+  } > "$dst"
+  echo "  assembled: ${dst#$TARGET/}"
+}
+
+install_pi() {
+  echo "[pi] skills -> .agents/skills/<name>/ (pi discovers these natively)"
+  for s in "${SKILLS[@]}"; do
+    if [[ -d "$RIG_DIR/skills/$s" ]]; then copy_no_clobber "$RIG_DIR/skills/$s" "$TARGET/.agents/skills/$s"
+    else echo "  unknown skill: $s" >&2; fi
+  done
+
+  echo "[pi] personas -> .pi/agents/ (body from agents/, frontmatter from pi/agents/)"
+  for a in "$RIG_DIR"/agents/*.md; do
+    [[ -e "$a" ]] || continue
+    local name fm
+    name="$(basename "$a" .md)"
+    fm="$RIG_DIR/pi/agents/$name.yml"
+    if [[ -f "$fm" ]]; then
+      assemble_pi_agent "$a" "$fm" "$TARGET/.pi/agents/$name.md"
+    else
+      echo "  no pi frontmatter for $name — skipping (add pi/agents/$name.yml)" >&2
+    fi
+  done
+
+  echo "[pi] prompt templates -> .pi/prompts/"
+  for p in "$RIG_DIR"/pi/prompts/*.md; do
+    [[ -e "$p" ]] || continue; copy_no_clobber "$p" "$TARGET/.pi/prompts/$(basename "$p")"
+  done
+
+  echo "[pi] scripts -> .rig/scripts/, support docs -> .rig/"
+  for f in "$RIG_DIR"/scripts/*; do
+    [[ -e "$f" ]] || continue
+    if [[ "$f" == *.test.* ]]; then continue; fi   # kit-internal tests aren't shipped
+    copy_no_clobber "$f" "$TARGET/.rig/scripts/$(basename "$f")"
+  done
+  chmod +x "$TARGET"/.rig/scripts/*.sh 2>/dev/null || true
+  for doc in REVIEWER.md label-mapping.md; do
+    if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/.rig/$doc"; fi
+  done
+
+  # Register the delegation extension. Never rewrite an existing settings file —
+  # it may already carry the user's own packages/model choices.
+  if [[ -e "$TARGET/.pi/settings.json" ]]; then
+    echo "  skip (exists): .pi/settings.json — ensure it lists \"npm:pi-subagents\" in \"packages\""
+  else
+    mkdir -p "$TARGET/.pi"
+    printf '{\n  "packages": [\n    "npm:pi-subagents"\n  ]\n}\n' > "$TARGET/.pi/settings.json"
+    echo "  wrote: .pi/settings.json  (registers npm:pi-subagents for delegation)"
+  fi
+
+  DID_AGENTS_MD=1
+  DID_PI=1
+}
+
+# --- Shared: the AGENTS.md pointer block -------------------------------------
+# Written once, after every adapter has run, so a multi-target install describes
+# all of them instead of the last one winning.
+write_agents_md_block() {
+  local personas
+  if [[ "$DID_PI" == 1 && -d "$TARGET/.rig/agents" ]]; then
+    personas="personas live in \`.pi/agents/\` (for pi) and \`.rig/agents/\` (for every other agent)."
+  elif [[ "$DID_PI" == 1 ]]; then
+    personas="personas live in \`.pi/agents/\`."
+  else
+    personas="personas live in \`.rig/agents/\`."
+  fi
+
   local block
   block="$(
     echo "## Rig"
@@ -161,11 +257,17 @@ install_agents_md() {
     echo "Project config lives in \`.rig/config.json\` — read it for the test command,"
     echo "base branch, tracker, and review-bot settings before running any skill."
     echo
-    echo "**Roles/subagents:** personas live in \`.rig/agents/\` (rig-reviewer, rig-coder,"
-    echo "rig-architect, rig-qa, rig-debugger). If your agent supports subagents,"
+    echo "**Roles/subagents:** $personas The roles are rig-reviewer, rig-coder,"
+    echo "rig-architect, rig-qa, rig-debugger. If your agent supports subagents,"
     echo "delegate to the named persona; otherwise adopt that persona's instructions"
     echo "inline. Helper scripts are in \`.rig/scripts/\`; review patterns in"
     echo "\`.rig/REVIEWER.md\` (set \`review.patternsFile\` accordingly)."
+    if [[ "$DID_PI" == 1 ]]; then
+      echo
+      echo "**In pi:** run a skill with role delegation wired up via \`/rig <skill> [args]\`"
+      echo "(e.g. \`/rig review find\`). Delegation needs \`npm:pi-subagents\`, registered in"
+      echo "\`.pi/settings.json\`; without it the personas are adopted inline."
+    fi
   )"
 
   local F="$TARGET/AGENTS.md"
@@ -174,10 +276,10 @@ install_agents_md() {
     awk -v s="$S" -v e="$E" '$0==s{skip=1} skip&&$0==e{skip=0;next} !skip{print}' "$F" > "$F.tmp" && mv "$F.tmp" "$F"
   else
     printf '# AGENTS.md\n' > "$F"
-    echo "[agents-md] created AGENTS.md"
+    echo "created AGENTS.md"
   fi
   { printf '\n%s\n' "$S"; printf '%s\n' "$block"; printf '%s\n' "$E"; } >> "$F"
-  echo "[agents-md] injected ## Rig index into AGENTS.md (idempotent)"
+  echo "injected ## Rig index into AGENTS.md (idempotent)"
 }
 
 # --- Run ---------------------------------------------------------------------
@@ -190,10 +292,17 @@ for t in "${TARGETS[@]}"; do
   case "$t" in
     claude-code) install_claude_code ;;
     agents-md)   install_agents_md ;;
-    *) echo "unknown target: $t (known: claude-code, agents-md)" >&2; exit 2 ;;
+    pi)          install_pi ;;
+    *) echo "unknown target: $t (known: claude-code, agents-md, pi)" >&2; exit 2 ;;
   esac
   echo
 done
+
+if [[ "$DID_AGENTS_MD" == 1 ]]; then
+  echo "AGENTS.md pointer block:"
+  write_agents_md_block
+  echo
+fi
 
 echo "Project profile:"
 write_profile
@@ -205,3 +314,11 @@ Done. Next:
   2. For CI workflows, see $RIG_DIR/ci/README.md (copy + parameterize by hand).
   3. Or run the 'rig-onboard' skill in your agent for the guided setup.
 EOF
+
+if [[ "$DID_PI" == 1 ]]; then
+  cat <<EOF
+  4. pi target: run \`pi\` in the project and approve the project-local files
+     (\`.pi/\` is only read once trusted). pi installs npm:pi-subagents from
+     .pi/settings.json on startup. Then try \`/rig review find\`. See docs/pi.md.
+EOF
+fi

@@ -1,0 +1,7 @@
+name: rig-debugger
+description: Systematic root-cause debugger. Use when investigating a failing test, a production bug, a flaky behavior, or any "this doesn't work and I don't know why" situation. Walks Phase 1 → 4 (root-cause → pattern analysis → hypothesis → minimal fix) and refuses to propose fixes before evidence is in.
+tools: read, write, edit, bash, grep, find, ls, intercom
+thinking: high
+systemPromptMode: replace
+inheritProjectContext: true
+inheritSkills: false
