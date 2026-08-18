@@ -71,6 +71,10 @@ Read, don't ask. Gather:
     nothing else standardizes those; plus a minimal `## Rig` pointer block
     injected into `AGENTS.md`). If none detected, default to `claude-code`; if
     unsure, ask.
+  - `.pi/` → **`pi`** ([pi](https://pi.dev): skills go to `.agents/skills/`,
+    which pi scans natively; personas to `.pi/agents/` in `pi-subagents`
+    frontmatter; a `/rig` dispatcher to `.pi/prompts/`). Detect alongside the
+    others — a repo worked on from both Claude Code and pi wants both targets.
 - **Existing `.claude/` or `.agents/skills/`**: note any skills/agents already
   present so you can warn before overwriting. Also check for a legacy
   `.rig/skills/*.md` flat-file layout from a pre-`.agents/skills/` onboarding —
@@ -143,6 +147,25 @@ skill/agent/catalog without diff-and-confirm.
   agents should adopt the `.rig/agents/` personas inline — it no longer
   enumerates skills. Set `review.patternsFile` in the profile to
   `.rig/REVIEWER.md` for this target.
+- **`pi`:** skills go to `<target>/.agents/skills/<name>/` (same copy as
+  `agents-md` — pi scans that location natively). Personas are **assembled, not
+  copied**: for each `RIG_DIR/agents/<name>.md`, write
+  `<target>/.pi/agents/<name>.md` as `---` + `RIG_DIR/pi/agents/<name>.yml` +
+  `---` + the source persona's body (everything after its own closing `---`).
+  The body is never duplicated in the kit; see `RIG_DIR/pi/agents/README.md` for
+  the mapping and why the frontmatter differs. Copy
+  `RIG_DIR/pi/prompts/*.md` → `<target>/.pi/prompts/`; scripts and starter docs
+  go to `.rig/` as in `agents-md`. Create `<target>/.pi/settings.json` with
+  `{"packages": ["npm:pi-subagents"]}` **only if absent** — if it exists, tell
+  the user to add that entry themselves rather than rewriting their settings.
+  Set `review.patternsFile` to `.rig/REVIEWER.md`. Then tell them to approve the
+  project-local files on first `pi` start (pi ignores `.pi/` until the project is
+  trusted) and to try `/rig review find`. Details: `RIG_DIR/docs/pi.md`.
+
+When more than one target delivered `.agents/skills/`, write the `## Rig`
+AGENTS.md block **once**, after all copies, describing every target you
+installed — the block is replaced wholesale between its markers, so writing it
+per-target means the last one silently wins.
 
 ## 5. Offer CI (optional, gated on consent)
 

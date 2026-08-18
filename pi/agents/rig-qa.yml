@@ -1,0 +1,7 @@
+name: rig-qa
+description: Test writing agent. Use to write or extend unit tests for new or changed code. Give it the file or function to test and it will produce the test cases.
+tools: read, write, edit, bash, grep, find, ls
+thinking: medium
+systemPromptMode: replace
+inheritProjectContext: true
+inheritSkills: false
