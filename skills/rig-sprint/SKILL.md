@@ -32,6 +32,7 @@ Reads `.rig/config.json` (missing keys → defaults):
 | `runtime.installCommand` / `packageManager` | `npm` | Install command inside a worktree. |
 | `test.command` | `npm test` | Test step in each per-ticket implementation. |
 | `sourceScope[0]` | `src` | Default codebase area to explore during decomposition. |
+| `style.guideFile` | `.claude/STYLE.md` | Writing style for item titles, bodies, and the hand-off report. |
 
 **Tracker modes:**
 - `linear` — tickets are Linear issues; use the `mcp__claude_ai_Linear__*` tools.

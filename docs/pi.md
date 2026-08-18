@@ -14,7 +14,7 @@ that indirection resolves to real delegation with isolated context per role.
 | Skills | `.agents/skills/<name>/` | pi scans project `.agents/skills/` natively — no index, no registration |
 | Personas | `.pi/agents/rig-*.md` | `pi-subagents` reads agent definitions from `.pi/agents/` |
 | `/rig` dispatcher | `.pi/prompts/rig.md` | wires each skill's `agents.*` roles to the `subagent` tool |
-| Scripts, `REVIEWER.md` | `.rig/` | one rig home for what no standard covers |
+| Scripts, `REVIEWER.md`, `STYLE.md` | `.rig/` | one rig home for what no standard covers |
 | Delegation extension | `.pi/settings.json` → `npm:pi-subagents` | pi installs it on startup once the project is trusted |
 | Project profile | `.rig/config.json` | same file every target reads |
 
@@ -112,6 +112,7 @@ know which providers you have.
 For this target set, in `.rig/config.json`:
 
 - `review.patternsFile`: `.rig/REVIEWER.md`
+- `style.guideFile`: `.rig/STYLE.md`
 - `tracker.labelMapFile`: `.rig/label-mapping.md`
 - `agents.*`: leave unset unless you renamed a persona — the defaults are
   `rig-<role>`, matching what lands in `.pi/agents/`.

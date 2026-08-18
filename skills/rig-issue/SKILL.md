@@ -22,6 +22,7 @@ Reads `.rig/config.json` (missing keys → defaults):
 | `tracker.ticketPrefix` | — | Identifier prefix (e.g. `ABC-`) to recognize IDs. |
 | `tracker.labelMapFile` | `.claude/label-mapping.md` | Label source-of-truth for create. |
 | `tracker.githubIntegration` | `false` | If true, do NOT manually move states (see below). |
+| `style.guideFile` | `.claude/STYLE.md` | Writing style for the ticket title and body. |
 
 **If `tracker.provider` is `none`:** this skill can't run. Explain that
 ticket management needs a tracker, and point the user at
@@ -80,6 +81,13 @@ labels and note that no label map was found.
 Then ask the user if they want to add a description. If yes, update the
 issue (Linear: `save_issue` with `id` + `description`; GitHub:
 `gh issue edit <number> --body ...`).
+
+**How the ticket reads.** The person who picks this up may not be the person who
+filed it. Write the title as an imperative outcome — `Add rate limiting to
+/invoices`, not `Rate limiting`. Write the body to `style.guideFile` (default
+`.claude/STYLE.md`): goal first, then acceptance criteria as a checklist someone
+can verify item by item, then the files to touch and the ordered steps. One idea
+per sentence, active voice, present tense, no filler.
 
 ### `move <id> <status>`
 

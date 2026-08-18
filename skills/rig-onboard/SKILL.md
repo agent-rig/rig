@@ -95,6 +95,8 @@ important ones to settle:
 - `tracker.provider` and, if not "none": team, project, `ticketPrefix`,
   `githubIntegration`
 - `review.patternsFile`, `review.bot` (+ `botRetrigger` if a bot)
+- `style.guideFile` — the writing style agents follow for PR bodies, tickets,
+  and findings (`.claude/STYLE.md`, or `.rig/STYLE.md` on the non-Claude targets)
 
 Do **not** ask about `agents` overrides unless the user already has agents with
 clashing names — the defaults are the kit's own `rig-<role>` agents.
@@ -128,7 +130,7 @@ skill/agent/catalog without diff-and-confirm.
 - **`claude-code`:** copy chosen `RIG_DIR/skills/<name>/` →
   `<target>/.claude/skills/<name>/`; `RIG_DIR/agents/*.md` →
   `<target>/.claude/agents/`; `RIG_DIR/scripts/*` → `<target>/.claude/scripts/`
-  (`chmod +x`); and starter `REVIEWER.md` / `label-mapping.md` →
+  (`chmod +x`); and starter `REVIEWER.md` / `STYLE.md` / `label-mapping.md` →
   `<target>/.claude/` **only if absent**.
 - **`agents-md`:** skills are delivered as full directories — copy each chosen
   `RIG_DIR/skills/<name>/` → `<target>/.agents/skills/<name>/` (same shape as
@@ -139,14 +141,15 @@ skill/agent/catalog without diff-and-confirm.
   keeps living under `.rig/` (the same dir as the shared config profile, so
   there's still one rig home for non-skill pieces): agents →
   `<target>/.rig/agents/`; scripts → `<target>/.rig/scripts/`; starter docs
-  (`REVIEWER.md`, `label-mapping.md`) → `<target>/.rig/` (if absent). Then
+  (`REVIEWER.md`, `STYLE.md`, `label-mapping.md`) → `<target>/.rig/` (if
+  absent). Then
   inject/refresh an idempotent `## Rig` section into `<target>/AGENTS.md`
   (between `<!-- rig:start -->` / `<!-- rig:end -->` markers — replace any
   existing block, don't duplicate). Keep this block short: a pointer to
   `.rig/config.json` for project settings, and a note that subagent-less
   agents should adopt the `.rig/agents/` personas inline — it no longer
-  enumerates skills. Set `review.patternsFile` in the profile to
-  `.rig/REVIEWER.md` for this target.
+  enumerates skills. Set `review.patternsFile` to `.rig/REVIEWER.md` and
+  `style.guideFile` to `.rig/STYLE.md` in the profile for this target.
 - **`pi`:** skills go to `<target>/.agents/skills/<name>/` (same copy as
   `agents-md` — pi scans that location natively). Personas are **assembled, not
   copied**: for each `RIG_DIR/agents/<name>.md`, write
@@ -158,7 +161,8 @@ skill/agent/catalog without diff-and-confirm.
   go to `.rig/` as in `agents-md`. Create `<target>/.pi/settings.json` with
   `{"packages": ["npm:pi-subagents"]}` **only if absent** — if it exists, tell
   the user to add that entry themselves rather than rewriting their settings.
-  Set `review.patternsFile` to `.rig/REVIEWER.md`. Then tell them to approve the
+  Set `review.patternsFile` to `.rig/REVIEWER.md` and `style.guideFile` to
+  `.rig/STYLE.md`. Then tell them to approve the
   project-local files on first `pi` start (pi ignores `.pi/` until the project is
   trusted) and to try `/rig review find`. Details: `RIG_DIR/docs/pi.md`.
 

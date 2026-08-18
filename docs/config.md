@@ -61,6 +61,11 @@ Set `provider: "none"` to strip all ticket steps from `ticket`/`sprint`/review f
 | `botRetrigger` | — | Comment that re-triggers the bot, e.g. `@codex review`. |
 | `maxRounds` | `5` | Max fix↔re-review rounds before handing to a human. |
 
+## `style`
+| Key | Default | Meaning |
+|---|---|---|
+| `guideFile` | `.claude/STYLE.md` | The house style for prose agents write — PR bodies, tickets, review findings, plans, hand-backs. Rig ships a starter based on the [Google developer documentation style guide](https://developers.google.com/style). Every persona reads it before writing; the rules also hold inline if the file is missing. |
+
 ## `agents`
 Optional map from the kit's canonical role → the agent name registered in your
 project. Defaults to the kit's own agents, `rig-<role>` (e.g. `debugger`→
