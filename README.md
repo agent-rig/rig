@@ -10,7 +10,7 @@ read at runtime from a small **project profile** you fill in during onboarding.
 
 | Layer | Contents | How it's delivered |
 |---|---|---|
-| **Skills** (`skills/`) | `rig-doctor`, `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-plan`, `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` (or `.agents/skills/` for non-Claude agents — see "Works with your agent" below) |
+| **Skills** (`skills/`) | `rig-doctor`, `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-proof` (`find`/`fix`), `rig-plan`, `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` (or `.agents/skills/` for non-Claude agents — see "Works with your agent" below) |
 | **Agents** (`agents/`) | `rig-debugger`, `rig-reviewer`, `rig-architect`, `rig-qa`, `rig-coder` | Copied into `<project>/.claude/agents/` |
 | **pi adapter** (`pi/`) | Per-target persona frontmatter (`pi/agents/*.yml`, assembled onto the shared bodies) + the `/rig` dispatcher prompt | Copied into `<project>/.pi/{agents,prompts}/` — see [`docs/pi.md`](docs/pi.md) |
 | **Support docs** (`templates/`) | starter `REVIEWER.md` (+ `REVIEWER.scope-template.md`), `STYLE.md`, `label-mapping.md` | Copied into `<project>/.claude/` (only if absent) |

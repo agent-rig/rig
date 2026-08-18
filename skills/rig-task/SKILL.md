@@ -241,6 +241,9 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
      in the imperative under ~72 characters, PR summary that answers *what
      changed and why* in its first sentence, a test plan another person could
      run. Don't narrate the diff — the diff is right there.
+   - **Proof the draft body before creating the PR** — `/rig-proof find` on it
+     (pipe the draft in on stdin) and apply what comes back. Every reviewer reads
+     this body; rewriting it after it's posted notifies all of them again.
 4. **Link the PR + move to In Review — adaptively** (works with *or* without a
    live tracker↔GitHub integration; treat `tracker.githubIntegration` as a hint,
    not a gate — it may claim `true` while nothing is actually connected):

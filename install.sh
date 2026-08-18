@@ -65,7 +65,7 @@ if [[ "$TARGET" == "$RIG_DIR" ]]; then
   exit 2
 fi
 
-DEFAULT_SKILLS=(rig-doctor rig-debug rig-spike rig-tidy rig-review rig-issue rig-worktree rig-task rig-plan rig-sprint rig-epic)
+DEFAULT_SKILLS=(rig-doctor rig-debug rig-spike rig-tidy rig-review rig-proof rig-issue rig-worktree rig-task rig-plan rig-sprint rig-epic)
 if [[ ${#SKILLS[@]} -eq 0 ]]; then
   SKILLS=("${DEFAULT_SKILLS[@]}")
 fi
