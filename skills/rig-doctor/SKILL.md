@@ -71,17 +71,20 @@ run /rig-onboard"). Everything below is gated on what the config actually uses
 - **auto-accept** — a skill **cannot** read the harness's mode, so this is
   advice, not a check: if you're *not* in auto-accept, epics and `rig-loop`
   pause on every edit. In Claude Code, `shift+tab` toggles it.
-- **`.rig/epics/` gitignored** — it's throwaway coordination state and must not
-  be committed. *(--fix: add `.rig/epics/` to `.gitignore`.)*
+- **`.rig/state/` gitignored** — run state and its journal are throwaway
+  coordination state and must not be committed. *(--fix: add `.rig/state/` to
+  `.gitignore`.)*
 - **sourceScope paths exist** — each `sourceScope[i]` resolves. Fix: correct it.
-- **stale epics** — `.rig/epics/*.json` whose branches are already merged/gone.
+- **stale runs** — `bun <SCRIPTS>/rig-state.ts list` entries whose branch is
+  merged or gone, or whose `updatedAt` is over a week old. Fix: `rig-state.ts rm
+  <run-id>`.
 
 ## `--fix` (opt-in)
 
 Only when `--fix` is passed. Show the exact change and get a yes before each,
 then apply **only the safe set**:
 - create missing `shapeLabels` repo labels (`gh label create … --force`);
-- add `.rig/epics/` to `.gitignore`;
+- add `.rig/state/` to `.gitignore`;
 - copy `REVIEWER.md` from the kit template if absent;
 - copy `STYLE.md` from the kit template if absent;
 - add missing board columns.
