@@ -66,7 +66,31 @@ and has the reviewer assert each as a **P1**. No-op if the project ships none.
     `vcs.baseRef`.
 
 If invoked from another skill, the caller may thread `{base}`, `{ticket-id}`,
-`{worktree-path}` — use them.
+`{worktree-path}`, and `{run-id}` — use them.
+
+## Run state
+
+A `fix` loop spans several rounds and a lot of bot output, so keep which
+findings are already fixed on disk rather than in the transcript. `<STATE>` =
+`bun <SCRIPTS>/rig-state.ts`. Resolve `<SCRIPTS>` from the repo root:
+`.claude/scripts/` then `.rig/scripts/`, first hit wins, as in
+[`/rig-worktree`](../rig-worktree/SKILL.md). See
+[`docs/state.md`](../../docs/state.md). Skip these calls if the script is
+absent.
+
+- **Called with a `{run-id}`** (the usual case — `/rig-task` Step 4.5 and Step 6
+  pass theirs): patch that run's `review` block after each round —
+  `<STATE> patch {run-id} --step review-round-<n> --json '{"review":{"source":"local|bot","round":<n>,"p0":<n>,"p1":<n>,"p2":<n>,"open":["<finding, one line>"],"outcome":"pending|clean|actionable|timeout|unresolved"}}'`.
+  The caller reads it back instead of re-running `find`.
+- **Invoked directly on a PR**: open your own run, `pr-<N>` —
+  `<STATE> init rig-review pr-<N> --json '{"phase":"fix","pr":<N>,"source":"bot","maxRounds":<review.maxRounds>,"round":1}'`
+  — and patch `findings` and `round` each pass. Two guards apply: `outcome:
+  clean` is rejected while any finding is still `open`, and `round` may not
+  exceed `maxRounds`. Both rejections mean the same thing — hand back to a
+  human rather than declaring victory.
+
+Record the finding, not the bot's prose: severity, `file:line`, one line of
+summary, and its status.
 
 ---
 # `find` — the read-only gate
@@ -157,7 +181,8 @@ If invoked from another skill, the caller may thread `{base}`, `{ticket-id}`,
      > Findings:\n{find_output}\n\nFor each, either apply the fix or explain in
      > one line why the finding is wrong. Don't silently skip."
    - Re-run the `find` verb (fresh context). If still P0/P1, increment `round`.
-4. Return the outcome.
+   - Patch the run state with the round's counts and which findings closed.
+4. Return the outcome, and patch it (`"outcome": "clean" | "unresolved"`).
 
 **Outcomes (local):**
 - `clean — 0 P0/P1 vs {base}` (P2/P3, if any, listed)
@@ -264,7 +289,8 @@ Loop, `round` starting at 1:
      doesn't re-run a gate check — re-run the required check or let the next push
      re-trigger it.
    - Re-trigger: `gh pr comment $PR --repo "$REPO" --body "$RETRIGGER"`.
-   - Increment `round`; update `PUSH_TIME` to the new commit; loop to 1.
+   - Increment `round`; update `PUSH_TIME` to the new commit; patch the run
+     state with the new round and finding statuses; loop to 1.
 4. **After N rounds** (or `clean`/`timeout`): the merge-queue gate is the
    authority — converge to it. If the project ships a P1-gate script, run it
    **with `REVIEW_BOT_LOGIN` set to the bot's login regex** (the same one used
