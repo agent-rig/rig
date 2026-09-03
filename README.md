@@ -10,9 +10,10 @@ read at runtime from a small **project profile** you fill in during onboarding.
 
 | Layer | Contents | How it's delivered |
 |---|---|---|
-| **Skills** (`skills/`) | `rig-doctor`, `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-plan`, `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` (or `.agents/skills/` for non-Claude agents — see "Works with your agent" below) |
+| **Skills** (`skills/`) | `rig-doctor`, `rig-debug`, `rig-spike`, `rig-tidy`, `rig-issue`, `rig-worktree`, `rig-review` (`find`/`fix`), `rig-proof` (`find`/`fix`), `rig-plan`, `rig-task`, `rig-sprint`, `rig-epic` | Copied into `<project>/.claude/skills/` (or `.agents/skills/` for non-Claude agents — see "Works with your agent" below) |
 | **Agents** (`agents/`) | `rig-debugger`, `rig-reviewer`, `rig-architect`, `rig-qa`, `rig-coder` | Copied into `<project>/.claude/agents/` |
-| **Support docs** (`templates/`) | starter `REVIEWER.md` (+ `REVIEWER.scope-template.md`), `label-mapping.md` | Copied into `<project>/.claude/` (only if absent) |
+| **pi adapter** (`pi/`) | Per-target persona frontmatter (`pi/agents/*.yml`, assembled onto the shared bodies) + the `/rig` dispatcher prompt | Copied into `<project>/.pi/{agents,prompts}/` — see [`docs/pi.md`](docs/pi.md) |
+| **Support docs** (`templates/`) | starter `REVIEWER.md` (+ `REVIEWER.scope-template.md`), `STYLE.md`, `label-mapping.md` | Copied into `<project>/.claude/` (only if absent) |
 | **Scripts** (`scripts/`) | `setup-worktree.sh`, `remove-worktree.sh`, `mint-gh-app-token.sh`, `scope-reviewer.ts`, `set-session-name.sh` (Claude-only) | Copied into `<project>/.claude/scripts/` |
 | **CI templates** (`ci/`) | `security-scan`, `label-pr`, `image-build`, `slack-notify`, `test-gate`, `test-e2e`, and the **AI review-bot bundle** (`review-bot-gate`, `auto-review-fix`, `pr-review-labels`) | Copied into `<project>/.github/workflows/` (see `ci/README.md`) |
 | **Onboarding** (`skills/rig-onboard/`) | The agent-driven installer skill | Run once against a target project |
@@ -26,11 +27,12 @@ your agent's own conventions via **targets** (auto-detected from repo markers):
 | Target | Delivered as | Covers |
 |---|---|---|
 | **`claude-code`** | `.claude/skills/<name>/`, `.claude/agents/`, `.claude/scripts/` (native skills + subagents) | Claude Code |
-| **`agents-md`** | `.agents/skills/<name>/` — the standard cross-agent Agent Skills layout, auto-discovered natively (no index needed) — plus `.rig/agents/`, `.rig/scripts/`, `.rig/REVIEWER.md` for the pieces the standard doesn't cover, and a minimal `## Rig` pointer block injected into `AGENTS.md` (config + persona adoption) | Codex, Cursor, Gemini CLI, Copilot, Rovo Dev — any agent that scans `.agents/skills/` or reads `AGENTS.md` |
+| **`agents-md`** | `.agents/skills/<name>/` — the standard cross-agent Agent Skills layout, auto-discovered natively (no index needed) — plus `.rig/agents/`, `.rig/scripts/`, `.rig/REVIEWER.md`, `.rig/STYLE.md` for the pieces the standard doesn't cover, and a minimal `## Rig` pointer block injected into `AGENTS.md` (config + persona adoption) | Codex, Cursor, Gemini CLI, Copilot, Rovo Dev — any agent that scans `.agents/skills/` or reads `AGENTS.md` |
+| **`pi`** | `.agents/skills/<name>/` (pi scans these natively) + `.pi/agents/` personas in `pi-subagents` frontmatter, a `/rig <skill>` dispatcher in `.pi/prompts/`, and `npm:pi-subagents` registered in `.pi/settings.json` — see [`docs/pi.md`](docs/pi.md) | [pi](https://pi.dev), with real role delegation instead of inline personas |
 
-For agents without subagents, the `.rig/agents/` personas are adopted **inline**
-rather than delegated — the skills reference roles through the `agents.*`
-indirection, so they degrade cleanly. Pick targets explicitly with
+For agents without subagents, the persona files are adopted **inline** rather
+than delegated — the skills reference roles through the `agents.*` indirection,
+so they degrade cleanly. Pick targets explicitly with
 `install.sh --target claude-code,agents-md`, or let detection choose.
 
 **A repo used by Claude Code *and* another agent installs both targets — but
@@ -64,7 +66,11 @@ clone, no config editing, no prior install.
   then in your project just say `/rig-onboard` — it finds `~/dev/rig` automatically.
 - **No agent at all:** `~/dev/rig/install.sh <target-project>` copies the
   default set and drops a config stub for you to edit by hand. It auto-detects
-  your agent target(s); override with `--target claude-code,agents-md`.
+  your agent target(s); override with `--target claude-code,agents-md,pi`.
+- **pi users:** the kit is also a [pi package](https://pi.dev/packages) —
+  `pi install git:github.com/agent-rig/rig` gets you the skills and the `/rig`
+  dispatcher globally, updatable with `pi update`. You still want
+  `install.sh --target pi` for the per-project pieces; see [`docs/pi.md`](docs/pi.md).
 
 ## The project profile
 
@@ -90,6 +96,14 @@ reference (the origin project's own values).
   colocated with the code, mirroring nested `AGENTS.md`). `rig-review` resolves
   the scoped files a diff touches and asserts them as P1s, so a subsystem's
   hard-won invariants stop getting re-discovered in PR review.
+- **Agent output is written for humans.** Agents produce a lot of prose — PR
+  bodies, ticket descriptions, review findings, plans, hand-backs — and left
+  alone they write it badly: buried conclusions, passive voice, hedge stacks,
+  filler. Every persona and every prose-emitting skill writes to one house style
+  ([`templates/STYLE.md`](templates/STYLE.md), following the [Google developer
+  documentation style guide](https://developers.google.com/style)), pointed at by
+  `style.guideFile`. The core rules are also inlined in each persona, so they
+  hold even when the file is missing.
 
 ## License
 

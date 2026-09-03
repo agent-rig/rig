@@ -32,6 +32,8 @@ Reads `.rig/config.json`:
 - `agents.architect` — the project's name for the canonical `architect`
   role (default: `architect`). `Explore` and `Plan` are Claude Code
   built-ins and are used as-is.
+- `style.guideFile` — the writing style for the findings writeup
+  (default: `.claude/STYLE.md`).
 
 If the file is absent, use the defaults above (treat the tracker as
 `none`) and note you're running unconfigured.
@@ -124,7 +126,11 @@ into logging"). Confirm the time-box before starting.
    guessing — an honest gap is more useful than a padded verdict, and it
    becomes an open question below.
 
-5. **Write the findings.** Produce a concise writeup with these sections:
+5. **Write the findings.** The writeup is the entire deliverable, so it has to
+   survive a skim by someone who wasn't here. Write it to `style.guideFile`
+   (default `.claude/STYLE.md`) — verdict in the first sentence, one idea per
+   sentence, every claim anchored to `file:line` or a run result, no filler and
+   no jargon. Use these sections:
 
    - **Header** — the question under test, the time-box, and the pinned
      codebase state (`SHA` + date) the claims were checked against.
@@ -143,6 +149,10 @@ into logging"). Confirm the time-box before starting.
      explicit "do not pursue, because …".
    - **Open questions** — anything still unknown that a later spike or the
      implementation would need to resolve.
+
+   Proof it before it goes anywhere: run `/rig-proof find` on the draft and
+   apply what comes back. The writeup is the deliverable, and it outlives the
+   spike.
 
    If a tracking ticket was created in step 2, post the writeup back to it
    (`mcp__claude_ai_Linear__save_comment` for Linear, `gh issue comment` for

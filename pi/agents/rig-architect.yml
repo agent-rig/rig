@@ -1,0 +1,7 @@
+name: rig-architect
+description: Tech lead agent for planning, architecture decisions, and ticket creation. Use when breaking down a feature, designing a solution, evaluating tradeoffs, or creating implementation tickets. Invoke before coding begins on any non-trivial change.
+tools: read, grep, find, ls, bash, intercom
+thinking: high
+systemPromptMode: replace
+inheritProjectContext: true
+inheritSkills: false

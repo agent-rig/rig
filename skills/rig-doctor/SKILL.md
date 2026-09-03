@@ -60,6 +60,10 @@ run /rig-onboard"). Everything below is gated on what the config actually uses
   correct the config. *(--fix: add via `gh` if missing.)*
 - **review catalog** — `review.patternsFile` (default `.claude/REVIEWER.md`)
   exists. Fix: copy the template from rig `templates/`. *(--fix: copy it in.)*
+- **writing-style guide** — `style.guideFile` (default `.claude/STYLE.md`)
+  exists, so every agent writes PR bodies, tickets, and findings to one
+  standard. Absent → "agent prose is unconstrained." Fix: copy the template from
+  rig `templates/`. *(--fix: copy it in.)*
 - **review bot reachable** — if `review.bot` ≠ `none`, the bot is installed on
   the repo. Fix: install it or set `review.bot: none`.
 
@@ -79,6 +83,7 @@ then apply **only the safe set**:
 - create missing `shapeLabels` repo labels (`gh label create … --force`);
 - add `.rig/epics/` to `.gitignore`;
 - copy `REVIEWER.md` from the kit template if absent;
+- copy `STYLE.md` from the kit template if absent;
 - add missing board columns.
 
 **Never auto-apply** (print the command instead): `gh auth …` (interactive),

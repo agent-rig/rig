@@ -15,8 +15,9 @@ ad-hoc branches, parallel experiments) and that implement-style flows and
 prune/rig-tidy steps can delegate to.
 
 The logic lives in two scripts so the invariants live in one place:
-`.claude/scripts/setup-worktree.sh` (create) and
-`.claude/scripts/remove-worktree.sh` (teardown). **Creation encodes
+`<SCRIPTS>/setup-worktree.sh` (create) and
+`<SCRIPTS>/remove-worktree.sh` (teardown), where `<SCRIPTS>` is resolved
+per install (see *Configuration*). **Creation encodes
 three invariants that bite if skipped** — fetch-before-branch (stale
 local refs silently start you on a pre-merge tip), env symlinks (missing
 secrets read as flaky/timeout test failures, not "config not found"),
@@ -25,6 +26,18 @@ worktrees → `Cannot find package '...'`). Don't reimplement these
 inline; call the scripts.
 
 ## Configuration
+
+**Script location (`<SCRIPTS>`).** Where the helper scripts live depends on
+which target installed them, so resolve — don't assume — from the repo root
+(`git rev-parse --show-toplevel`), first hit wins:
+
+1. `.claude/scripts/` — the `claude-code` target (on a dual-target install this
+   is a symlink at `.rig/scripts/`, so either entry finds the same file).
+2. `.rig/scripts/` — the `agents-md` target (Codex, Cursor, Gemini CLI, …),
+   where there is no `.claude/` at all.
+
+If neither holds `setup-worktree.sh`, say so and stop rather than
+reimplementing the script inline — its invariants are the whole point.
 
 Reads `.rig/config.json` (missing keys → defaults):
 
@@ -62,7 +75,9 @@ only required argument.
   `.claude/worktrees/<last segment of branch>` (so `alice/feat-521-foo`
   → `.claude/worktrees/feat-521-foo`). This is the directory the Claude Code
   harness manages, so a worktree created here can be adopted natively via
-  `EnterWorktree`/`ExitWorktree`.
+  `EnterWorktree`/`ExitWorktree`. The default is unchanged on non-Claude
+  agents — it's then just a path with no special meaning, so pass `--path` if
+  you'd rather not have a `.claude/` dir in the repo.
 - `--reuse` — if the worktree/branch already exists, fetch and
   hard-reset it to `<base>` instead of failing. Use this for a
   "reuse a child worktree" path.
@@ -93,10 +108,16 @@ only required argument.
      from the ticket title — fetch it if you have a tracker, else ask).
 
 3. **Run the script** from the repo root, passing the resolved base and
-   install command:
+   install command. Resolve `<SCRIPTS>` first (see *Configuration*):
 
    ```bash
-   "$(git rev-parse --show-toplevel)/.claude/scripts/setup-worktree.sh" \
+   ROOT="$(git rev-parse --show-toplevel)"
+   for d in "$ROOT/.claude/scripts" "$ROOT/.rig/scripts"; do
+     [ -x "$d/setup-worktree.sh" ] && SCRIPTS="$d" && break
+   done
+   [ -n "$SCRIPTS" ] || { echo "rig scripts not found under .claude/ or .rig/" >&2; exit 1; }
+
+   "$SCRIPTS/setup-worktree.sh" \
      <branch> [--base <baseRef>] [--install-cmd "<install cmd>"] [--reuse]
    ```
 
@@ -104,7 +125,7 @@ only required argument.
    path as the last line of stdout**, so capture it:
 
    ```bash
-   WT=$("$(git rev-parse --show-toplevel)/.claude/scripts/setup-worktree.sh" \
+   WT=$("$SCRIPTS/setup-worktree.sh" \
      alice/feat-521-rename --base origin/main --install-cmd "bun install" | tail -1)
    ```
 
@@ -142,10 +163,10 @@ End with a one-line hint, e.g. *"2 worktrees on MERGED branches —
 
 Safely tear a worktree down via the shared script. Dirty worktrees are
 **skipped, not removed** (a skip is a normal outcome, not an error) —
-pass `--force-dirty` to override.
+pass `--force-dirty` to override. Resolve `<SCRIPTS>` as in *Create* step 3:
 
 ```bash
-"$(git rev-parse --show-toplevel)/.claude/scripts/remove-worktree.sh" \
+"$SCRIPTS/remove-worktree.sh" \
   <branch|path> [--force-dirty] [--keep-branch]
 ```
 

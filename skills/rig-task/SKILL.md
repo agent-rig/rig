@@ -43,6 +43,8 @@ Reads `.rig/config.json` (defaults in parentheses):
 - `test.command` (`npm test`), `test.integrationCommand`, `test.e2eCommand`.
 - `review.patternsFile` (`.claude/REVIEWER.md`), `review.bot`
   (`none`), `review.botRetrigger`, `review.maxRounds` (`5`).
+- `style.guideFile` (`.claude/STYLE.md`) — the house style for the commit
+  message, the PR body, and the hand-back line.
 - `agents.architect` / `agents.qa` / `agents.coder` / `agents.reviewer`
   (default `rig-<role>`) — the registered agent names for each role.
 
@@ -235,6 +237,13 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
      **`## Architecture`** section stating any new abstraction/package/
      dependency/migration or core-domain touch and **why existing code wasn't
      reused** (write "No architectural change." otherwise).
+   - Write both to `style.guideFile` (default `.claude/STYLE.md`): commit subject
+     in the imperative under ~72 characters, PR summary that answers *what
+     changed and why* in its first sentence, a test plan another person could
+     run. Don't narrate the diff — the diff is right there.
+   - **Proof the draft body before creating the PR** — `/rig-proof find` on it
+     (pipe the draft in on stdin) and apply what comes back. Every reviewer reads
+     this body; rewriting it after it's posted notifies all of them again.
 4. **Link the PR + move to In Review — adaptively** (works with *or* without a
    live tracker↔GitHub integration; treat `tracker.githubIntegration` as a hint,
    not a gate — it may claim `true` while nothing is actually connected):
@@ -295,7 +304,11 @@ Only `clean` is merge-green; everything else stops for a human.
 
 ## Step 7 — Hand back
 
-Print the final outcome line and the PR URL. **Tracker state — adaptive** (don't
+Print the final outcome line and the PR URL. The outcome line carries real
+state, not reassurance — `tests: 412 pass, 0 fail · review: 0 P0/P1, 2 P2
+deferred · PR #418 open`, never "everything looks good".
+
+**Tracker state — adaptive** (don't
 trust `tracker.githubIntegration`; check reality): if the PR has already **merged**
 by hand-back (e.g. `--auto-merge` landed it), ensure the item is **Done**
 (`get_issue`; move only if not already Done — defer if a live integration closed

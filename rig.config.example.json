@@ -42,6 +42,9 @@
     "botRetrigger": "@codex review",
     "maxRounds": 5
   },
+  "style": {
+    "guideFile": ".claude/STYLE.md"
+  },
   "agents": {
     "debugger": "rig-debugger",
     "reviewer": "rig-reviewer",

@@ -20,6 +20,8 @@ Reads `.rig/config.json`:
   role (default: `debugger`).
 - `agents.architect` — the project's name for the canonical `architect`
   role, used only when escalating (default: `architect`).
+- `style.guideFile` — the writing style for the report you hand back
+  (default: `.claude/STYLE.md`).
 
 If the file is absent, use the defaults above and note you're running
 unconfigured.

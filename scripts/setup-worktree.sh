@@ -96,7 +96,7 @@ esac
 # Optional session name (do it early so any job list updates even if a later
 # step is slow). set-session-name.sh ships alongside this script; it's
 # Claude-Code-only and no-ops elsewhere. Resolve it as this script's sibling so
-# it works under .claude/scripts/ or rig/scripts/.
+# it works under .claude/scripts/ or .rig/scripts/.
 if [ -n "$SESSION_NAME" ]; then
   set_name="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/set-session-name.sh"
   if [ -x "$set_name" ]; then

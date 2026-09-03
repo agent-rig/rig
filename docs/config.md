@@ -50,16 +50,21 @@ Set `provider: "none"` to strip all ticket steps from `ticket`/`sprint`/review f
 | `team` | — | Linear team name/key or GitHub org. |
 | `project` | — | Linear project name. |
 | `ticketPrefix` | — | e.g. `INC-`; detects ticket IDs in branches/PR titles. |
-| `labelMapFile` | `.claude/label-mapping.md` | PR/tracker label source of truth. |
+| `labelMapFile` | `.claude/label-mapping.md` | PR/tracker label source of truth. On an install without the `claude-code` target the doc lives at `.rig/label-mapping.md`, and the installer writes that path instead. |
 | `githubIntegration` | `false` | If true, GitHub drives PR/merge transitions (In Progress on PR-open, In Review, Done on merge); skills set only the start-of-work In Progress, which GitHub can't observe before a PR exists. |
 
 ## `review`
 | Key | Default | Meaning |
 |---|---|---|
-| `patternsFile` | `.claude/REVIEWER.md` | The P0–P3 review catalog. |
+| `patternsFile` | `.claude/REVIEWER.md` | The P0–P3 review catalog. On an install without the `claude-code` target the catalog lives at `.rig/REVIEWER.md`, and the installer writes that path instead. |
 | `bot` | `none` | `codex`\|`claude`\|`bugbot`\|`none`. Which PR bot `rig-review fix` polls/re-triggers. |
 | `botRetrigger` | — | Comment that re-triggers the bot, e.g. `@codex review`. |
 | `maxRounds` | `5` | Max fix↔re-review rounds before handing to a human. |
+
+## `style`
+| Key | Default | Meaning |
+|---|---|---|
+| `guideFile` | `.claude/STYLE.md` | The house style for prose agents write — PR bodies, tickets, review findings, plans, hand-backs. Rig ships a starter based on the [Google developer documentation style guide](https://developers.google.com/style). Every persona reads it before writing; the rules also hold inline if the file is missing. `rig-proof` walks it against a draft, and `scripts/check-style.ts` harvests its banned-term lists to grep for mechanically — so the guide is the only place style rules live. |
 
 ## `agents`
 Optional map from the kit's canonical role → the agent name registered in your
