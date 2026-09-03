@@ -171,6 +171,27 @@ AGENTS.md block **once**, after all copies, describing every target you
 installed — the block is replaced wholesale between its markers, so writing it
 per-target means the last one silently wins.
 
+**Both targets on one repo (a repo used by Claude Code *and* Codex/Cursor/…):**
+don't lay the payload down twice — two copies of every skill are two sources of
+truth, one edit away from drifting. Install the `agents-md` payload first, then
+make the `claude-code` entries **symlinks** at it (Claude Code follows symlinks
+for skill directories and for plain files):
+
+- `<target>/.claude/skills/<name>` → `../../.agents/skills/<name>`
+- `<target>/.claude/agents/<file>` → `../../.rig/agents/<file>`
+- `<target>/.claude/scripts/<file>` → `../../.rig/scripts/<file>`
+- `<target>/.claude/REVIEWER.md` → `../.rig/REVIEWER.md` (same for
+  `label-mapping.md`)
+
+Use link text **relative to the link's own directory**, as above, so the links
+survive a clone or a moved checkout. `install.sh` does all of this for you when
+it resolves both targets. If symlinks aren't available (Windows without
+developer mode), fall back to copying and tell the user the two trees must be
+kept in sync by re-running onboarding rather than hand-editing one side.
+Because the two `REVIEWER.md` paths now resolve to the same file,
+`review.patternsFile` can point at either — prefer `.claude/REVIEWER.md` so the
+Claude-native path stays canonical.
+
 ## 5. Offer CI (optional, gated on consent)
 
 If the user wants CI, follow `RIG_DIR/ci/README.md`: copy the chosen workflow

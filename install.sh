@@ -32,6 +32,11 @@
 # (falling back to claude-code). Repeat/comma-separate to install several.
 # With no skill list, installs the recommended default set. Existing files are
 # never overwritten.
+#
+# Installing BOTH targets keeps one physical payload: the skills/agents/scripts
+# land in .agents/ + .rig/, and .claude/ is symlinked at them (Claude Code
+# follows symlinks) so there's a single source of truth to edit. Where symlinks
+# aren't available, .claude/ falls back to its own copy.
 
 set -euo pipefail
 
@@ -89,6 +94,29 @@ else
   echo "No --target given; auto-detected: ${TARGETS[*]}"
 fi
 
+has_target() { local t; for t in "${TARGETS[@]}"; do [[ "$t" == "$1" ]] && return 0; done; return 1; }
+
+# Both adapters on one repo would otherwise lay down two physical copies of
+# every skill/agent/script — two sources of truth, one edit away from drifting.
+# Claude Code follows symlinks for skill dirs (and plain files), so when both
+# targets are installed we keep ONE payload (.agents/ + .rig/, the locations
+# other agents discover natively) and point .claude/ at it. Requires symlink
+# support: without it (Windows sans developer mode) we fall back to copying.
+DEDUPE=0
+if has_target claude-code && has_target agents-md; then
+  probe="$TARGET/.rig-symlink-probe"
+  rm -f "$probe" 2>/dev/null || true
+  if ln -s . "$probe" 2>/dev/null && [[ -L "$probe" ]]; then
+    DEDUPE=1
+  else
+    echo "note: symlinks unavailable here — .claude/ gets its own copy of the payload."
+  fi
+  rm -f "$probe" 2>/dev/null || true
+fi
+
+# Both adapters run on a dual-target install, and claude-code links at what
+# agents-md lays down — so agents-md has to go first.
+if [[ $DEDUPE -eq 1 ]]; then TARGETS=(agents-md claude-code); fi
 DID_AGENTS_MD=0   # some target delivered .agents/skills/ -> AGENTS.md needs the pointer block
 DID_PI=0          # the pi target ran -> the block mentions .pi/ and /rig
 
@@ -101,6 +129,26 @@ copy_no_clobber() {
     cp -R "$src" "$dst"
     echo "  copied: ${dst#$TARGET/}"
   fi
+}
+
+# $1 = link text, relative to $2's own directory (so the link survives a clone
+# or a moved checkout); $2 = where the symlink goes.
+link_no_clobber() {
+  local rel="$1" dst="$2"
+  if [[ -e "$dst" || -L "$dst" ]]; then
+    echo "  skip (exists): ${dst#$TARGET/}"
+  else
+    mkdir -p "$(dirname "$dst")"
+    ln -s "$rel" "$dst"
+    echo "  linked: ${dst#$TARGET/} -> $rel"
+  fi
+}
+
+# Copy, or symlink at the already-installed .agents//.rig/ payload when we're
+# deduping. $1 = source in the kit, $2 = destination under .claude/, $3 = link
+# text relative to $2's directory.
+place() {
+  if [[ $DEDUPE -eq 1 ]]; then link_no_clobber "$3" "$2"; else copy_no_clobber "$1" "$2"; fi
 }
 
 # --- Shared: project profile (agent-agnostic) --------------------------------
@@ -126,26 +174,37 @@ write_profile() {
 }
 
 # --- Adapter: claude-code ----------------------------------------------------
+# When DEDUPE=1 every "copy" below becomes a symlink at the payload agents-md
+# already installed; .claude/skills/<n> and .claude/{agents,scripts}/<f> are two
+# levels down from the repo root, the support docs one.
 install_claude_code() {
-  echo "[claude-code] skills -> .claude/skills/"
+  if [[ $DEDUPE -eq 1 ]]; then
+    echo "[claude-code] skills -> .claude/skills/ (symlinked at .agents/skills/)"
+  else
+    echo "[claude-code] skills -> .claude/skills/"
+  fi
   for s in "${SKILLS[@]}"; do
-    if [[ -d "$RIG_DIR/skills/$s" ]]; then copy_no_clobber "$RIG_DIR/skills/$s" "$TARGET/.claude/skills/$s"
+    if [[ -d "$RIG_DIR/skills/$s" ]]; then
+      place "$RIG_DIR/skills/$s" "$TARGET/.claude/skills/$s" "../../.agents/skills/$s"
     else echo "  unknown skill: $s" >&2; fi
   done
   echo "[claude-code] agents -> .claude/agents/"
   for a in "$RIG_DIR"/agents/*.md; do
-    [[ -e "$a" ]] || continue; copy_no_clobber "$a" "$TARGET/.claude/agents/$(basename "$a")"
+    [[ -e "$a" ]] || continue
+    place "$a" "$TARGET/.claude/agents/$(basename "$a")" "../../.rig/agents/$(basename "$a")"
   done
   echo "[claude-code] scripts -> .claude/scripts/"
   for f in "$RIG_DIR"/scripts/*; do
     [[ -e "$f" ]] || continue
     if [[ "$f" == *.test.* ]]; then continue; fi   # kit-internal tests aren't shipped
-    copy_no_clobber "$f" "$TARGET/.claude/scripts/$(basename "$f")"
+    place "$f" "$TARGET/.claude/scripts/$(basename "$f")" "../../.rig/scripts/$(basename "$f")"
   done
   chmod +x "$TARGET"/.claude/scripts/*.sh 2>/dev/null || true
   echo "[claude-code] support docs (only if absent) -> .claude/"
-  for doc in REVIEWER.md STYLE.md label-mapping.md; do
-    if [[ -e "$RIG_DIR/templates/$doc" ]]; then copy_no_clobber "$RIG_DIR/templates/$doc" "$TARGET/.claude/$doc"; fi
+  for doc in REVIEWER.md label-mapping.md; do
+    if [[ -e "$RIG_DIR/templates/$doc" ]]; then
+      place "$RIG_DIR/templates/$doc" "$TARGET/.claude/$doc" "../.rig/$doc"
+    fi
   done
 }
 
