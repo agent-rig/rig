@@ -125,6 +125,28 @@
         "guideFile": { "type": "string", "default": ".claude/STYLE.md", "description": "Path to the project's writing-style guide. Rig ships a starter based on the Google developer documentation style guide." }
       }
     },
+    "design": {
+      "type": "object",
+      "description": "Design-source binding. Consumed by rig-design. Set provider to \"none\" (default) to strip the design-to-ticket flow entirely.",
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string", "enum": ["figma", "none"], "default": "none" },
+        "defaultFileKey": { "type": "string", "description": "Figma file key used when rig-design is invoked with a bare frame reference instead of a full URL." }
+      }
+    },
+    "dev": {
+      "type": "object",
+      "description": "Local dev-stack commands for rig-preview (Step 6.5 of rig-task). Absent entirely -> rig-preview reports manual preview isn't set up and stops, rather than guessing commands. Each of dbCommand/backendCommand/seedCommand may be \"none\" (a real, common case, e.g. a client-only app with no backend) -- frontendCommand is the only one rig-preview requires to do anything.",
+      "additionalProperties": false,
+      "properties": {
+        "dbCommand": { "type": "string", "default": "none", "description": "Command to start a local database, if any." },
+        "backendCommand": { "type": "string", "default": "none", "description": "Command to start a backend/API server, if any." },
+        "frontendCommand": { "type": "string", "description": "Command that serves the app (bundler/dev server). Required for rig-preview to do anything. MUST contain a literal \"{port}\" placeholder (e.g. \"npx expo start --port {port}\") -- rig-preview substitutes the actual port before running it. Without the placeholder, the command falls back to its own default port, which may collide with another worktree's preview even though the two picked different --port values." },
+        "frontendPort": { "type": "integer", "default": 8081, "description": "Port frontendCommand binds. rig-preview refuses to reuse a port held by another live worktree's preview rather than killing it blind." },
+        "mobileBuildCommand": { "type": "string", "description": "Mobile apps only: command that builds and installs a native binary onto a specific simulator device. MUST contain a literal \"{device}\" placeholder (e.g. \"npx expo run:ios --device {device}\"). rig-preview runs this for every preview -- a deep-link reconnect to an already-installed binary was tried and proven unreliable, so a full build+install per worktree is the default, not an optimization to skip." },
+        "seedCommand": { "type": "string", "default": "none", "description": "Command to seed local data. Absent/none -> rig-preview reports this as a gap rather than inventing a seed script." }
+      }
+    },
     "agents": {
       "type": "object",
       "description": "Optional overrides mapping the kit's canonical agent roles to the agent names registered in this project. Defaults to the kit's own agents, rig-<role> (e.g. debugger->rig-debugger). Set a value only to point a role at a differently-named agent.",
@@ -134,7 +156,8 @@
         "reviewer": { "type": "string" },
         "architect": { "type": "string" },
         "qa": { "type": "string" },
-        "coder": { "type": "string" }
+        "coder": { "type": "string" },
+        "designer": { "type": "string" }
       }
     },
     "ci": {

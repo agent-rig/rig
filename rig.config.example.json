@@ -45,12 +45,23 @@
   "style": {
     "guideFile": ".claude/STYLE.md"
   },
+  "design": {
+    "provider": "none"
+  },
+  "dev": {
+    "backendCommand": "none",
+    "dbCommand": "docker compose up -d postgres",
+    "seedCommand": "bun run db:seed",
+    "frontendCommand": "bun run dev -- --port {port}",
+    "frontendPort": 3000
+  },
   "agents": {
     "debugger": "rig-debugger",
     "reviewer": "rig-reviewer",
     "architect": "rig-architect",
     "qa": "rig-qa",
-    "coder": "rig-coder"
+    "coder": "rig-coder",
+    "designer": "rig-ui-ux-designer"
   },
   "ci": {
     "imageRegistry": "ghcr.io",

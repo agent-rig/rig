@@ -302,6 +302,20 @@ worktree before continuing.
 
 Only `clean` is merge-green; everything else stops for a human.
 
+## Step 6.5 — Manual QA environment (optional, non-blocking)
+
+Delegate to **`/rig-preview`** on `{worktree-path}`. It boots whatever
+`dev.*` commands are configured (db/backend/frontend), seeds data via the
+project's seed mechanism if one exists, and launches an iOS Simulator or
+Browser preview depending on app type — then reports what's running without
+judging it. A human decides whether the feature actually works.
+
+Skip this step if `.rig/config.json` has no `dev` block configured — nothing
+to boot. **Never let a `rig-preview` failure block hand-back**: report what
+went wrong (e.g. a port collision with another live worktree) and continue to
+Step 7 regardless. This step exists to save the human a manual boot-up, not to
+gate the PR.
+
 ## Step 7 — Hand back
 
 Print the final outcome line and the PR URL. The outcome line carries real
