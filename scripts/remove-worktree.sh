@@ -87,6 +87,22 @@ if [ "$FORCE_DIRTY" != "1" ] && [ -n "$(git -C "$WT_PATH" status --porcelain 2>/
   exit 0
 fi
 
+# Tear down anything /rig-preview started for this worktree (db/backend/
+# frontend processes) before the directory disappears — otherwise those
+# processes outlive the worktree and the next preview to claim their port
+# hits the exact stale-process bug this metadata file exists to prevent.
+# Recorded pids are each process's own group leader (preview-env.sh backs
+# them with `set -m` for exactly this reason), so kill the whole group
+# (negative pid) — a plain kill on the leader can leave a grandchild (the
+# actual dev-server process, forked by npx/npm) running.
+PREVIEW_META="$WT_PATH/.rig-preview.json"
+if [ -f "$PREVIEW_META" ]; then
+  echo "remove-worktree: tearing down preview processes for $WT_PATH..." >&2
+  for pid in $(grep -o '"pids": *\[[^]]*\]' "$PREVIEW_META" | grep -o '[0-9]\+' || true); do
+    kill -- "-$pid" 2>/dev/null || true
+  done
+fi
+
 # Route git's chatter to stderr so stdout carries only the outcome token.
 git -C "$MAIN" worktree remove --force "$WT_PATH" >&2
 if [ "$KEEP_BRANCH" != "1" ] && [ -n "$BRANCH" ]; then

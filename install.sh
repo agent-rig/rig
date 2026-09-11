@@ -65,7 +65,7 @@ if [[ "$TARGET" == "$RIG_DIR" ]]; then
   exit 2
 fi
 
-DEFAULT_SKILLS=(rig-doctor rig-debug rig-spike rig-tidy rig-review rig-proof rig-issue rig-worktree rig-task rig-plan rig-sprint rig-epic)
+DEFAULT_SKILLS=(rig-doctor rig-debug rig-spike rig-tidy rig-review rig-proof rig-issue rig-worktree rig-task rig-plan rig-sprint rig-epic rig-preview rig-design)
 if [[ ${#SKILLS[@]} -eq 0 ]]; then
   SKILLS=("${DEFAULT_SKILLS[@]}")
 fi
@@ -85,7 +85,8 @@ detect_targets() {
 if [[ -n "$TARGETS_CSV" ]]; then
   IFS=',' read -r -a TARGETS <<< "$TARGETS_CSV"
 else
-  mapfile -t TARGETS < <(detect_targets)
+  TARGETS=()
+  while IFS= read -r line; do TARGETS+=("$line"); done < <(detect_targets)
   echo "No --target given; auto-detected: ${TARGETS[*]}"
 fi
 
