@@ -35,6 +35,13 @@ than delegated — the skills reference roles through the `agents.*` indirection
 so they degrade cleanly. Pick targets explicitly with
 `install.sh --target claude-code,agents-md`, or let detection choose.
 
+**A repo used by Claude Code *and* another agent installs both targets — but
+only one physical payload.** The skills/agents/scripts live in `.agents/` +
+`.rig/`, and the `.claude/` entries are symlinks at them (Claude Code follows
+symlinks), so there's a single source of truth to edit instead of two trees that
+drift. Where symlinks aren't available (Windows without developer mode),
+`.claude/` falls back to its own copy and the install says so.
+
 ## Simplest onboarding (zero setup)
 
 Open Claude Code **in the project you want to onboard** and paste one line:
