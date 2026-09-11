@@ -101,6 +101,32 @@ Print the resolved unit + phase as the first output line, e.g.
 `rig-task start: ABC-369 (from branch alice/abc-369-...)` or
 `rig-task start: ad-hoc "add dark mode"`.
 
+## Run state
+
+This skill runs long enough to outlive its own transcript. A compaction between
+Step 3 and Step 6 drops the acceptance criteria, the failing assertion, and
+which review findings you already fixed. Keep them on disk instead, in a
+validated run-state document. See [`docs/state.md`](../../docs/state.md).
+
+Resolve the helper once: `<STATE>` = `bun <SCRIPTS>/rig-state.ts`, with
+`<SCRIPTS>` resolved from the repo root — `.claude/scripts/` then
+`.rig/scripts/`, first hit wins, as in [`/rig-worktree`](../rig-worktree/SKILL.md). If the script is absent, skip every state call below and run as
+before — the state is an accelerator, not a dependency.
+
+**Run id:** the ticket, lowercased (`abc-18`), or a kebab slug of the task in
+ad-hoc mode. `start` and `finish` share it. That reuse is what lets `finish`
+read what `start` recorded instead of reconstructing it.
+
+Each step below ends with the patch it owes. Two rules govern what goes in:
+
+- **Persist what a later step reads**, not what happened. Record the branch
+  name, the failing assertion, and the reason you rejected an approach. Don't
+  record a narration of Step 3.
+- **A rejected patch means fix the patch**, not the state. The tool prints the
+  reason and leaves the state untouched; correct it and retry. A rejection on
+  `phase: pr-open` means a gate genuinely isn't met.
+
+---
 ---
 The steps below are grouped into the two phases. **Steps 1–5 are `start`;
 Steps 6–7 are `finish`.** A bare `rig-task` runs all of them in order.
@@ -141,6 +167,14 @@ Steps 6–7 are `finish`.** A bare `rig-task` runs all of them in order.
    Base from `vcs.baseRef`. `cd` into the printed worktree path (`$WT`); use it
    as `{worktree-path}` in the agent prompts below.
 
+3. **Open the run state** with the spec from Step 1.1:
+   ```bash
+   <STATE> init rig-task <run-id> --json '{"spec":{"id":"…","title":"…","source":"linear|github|adhoc","acceptanceCriteria":["…"]},"base":"<vcs.baseRef or --base>","nextAction":"spec review"}'
+   ```
+   Then patch the checkout: `<STATE> patch <run-id> --step step-1 --json
+   '{"branch":"…","worktree":"$WT"}'`. If the run already exists, you're
+   resuming — `<STATE> show <run-id>` and continue from its phase.
+
    **Name the session** so a background-job list reads as the work, not the
    prompt (Claude-Code-only; no-ops elsewhere). Pass `--name` through to
    `/rig-worktree` — `"FEAT: <title> (<ticket>)"` for new behavior/bug fixes
@@ -158,6 +192,10 @@ Launch the **architect** and **qa** agents in parallel (names via `agents.*`):
 - **qa**: "Review this spec from a testing perspective. What test cases are
   needed? Are the acceptance criteria testable? What edge cases matter?
   Spec:\n{title}\n\n{description}"
+
+**Patch:** `{"phase":"spec-review","decisions":["<what you clarified, one line each>"],"blockers":["<what a human must answer>"],"nextAction":"write failing tests"}`.
+Blockers are what a resumed session needs to know it's parked on — clear them
+(`"blockers":null`) once they're answered.
 
 If either flags something that should be fixed before coding, clarify it — and,
 in tracker mode, update the item's description with the clarification and tell
@@ -179,6 +217,10 @@ Launch **qa** to write tests against the spec, *before* any implementation:
 
 Run the suite from the worktree: `cd "$WT" && <test.command>`.
 
+**Patch:** `{"phase":"red","tests":{"command":"<test.command>","status":"red","fail":<n>,"failures":["<the assertion, not the stack trace>"]},"nextAction":"minimum implementation"}`.
+The failing assertions are the spec Step 4 codes against, so they're worth the
+bytes; the stack traces aren't.
+
 **Verify red.** The new tests must fail with a message that reflects the missing
 behavior (e.g. "expected X, got undefined" / "not-yet-implemented symbol"). A
 new test that passes immediately was pinning existing behavior — send it back to
@@ -193,6 +235,8 @@ Launch **coder** with the failing tests as the spec:
   reusing* existing code over a parallel implementation. Make the minimum change
   — no features not required by a test.\n\nSpec:\n{title}\n{description}\n\n
   Architect notes:\n{architect_output}\n\nFailing tests:\n{test_output}"
+
+**Patch once green:** `{"phase":"green","tests":{"status":"green","pass":<n>,"fail":0,"failures":null},"nextAction":"pre-PR self-review"}`.
 
 Re-run the suite. If still red, send coder a fix iteration with the current
 failures. **Max 3 iterations**; if still red after 3, stop and surface to the
@@ -222,6 +266,9 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
      round it returns `unresolved` — stop, surface to the user, don't push.
 3. Report the final state before pushing, e.g. `tests: green, review: 0 P0/P1 +
    2 P2 (deferred)`.
+4. **Patch:** `{"phase":"self-review","review":{"source":"local","round":<n>,"p0":0,"p1":0,"p2":<n>,"open":["<deferred P2, one line each>"]},"nextAction":"open the PR"}`.
+   The `pr-open` phase is guarded on `tests.status: green` and zero P0/P1. A
+   rejection here means the gate isn't met — go fix the code, not the patch.
 
 ## Step 5 — Push and open the PR
 
@@ -265,7 +312,10 @@ don't pay a round-trip on. Delegate so the gate lives in one place:
        no GitHub *event* moves a card to In Review, so the adapter does it. Skip
        if no board is configured.
    Ensure the item's labels match `tracker.labelMapFile` if that file exists.
-5. Capture the PR number for Step 6.
+5. Capture the PR number for Step 6, and **patch:**
+   `{"phase":"pr-open","pr":{"number":<n>,"url":"…","state":"open"},"nextAction":"drive the review loop"}`.
+   This is what a later `finish` resolves the PR from — no re-derivation from
+   the branch.
 
 **Merge behavior.** Without `--auto-merge`, **do NOT `gh pr merge`** — open the PR
 and hand back (the human, `/rig-sprint`, or `/rig-epic` decides). **With
@@ -278,9 +328,16 @@ labels if the project ships a PR-labeler workflow — it applies them.
 ## ── `finish` phase (Steps 6–7) ──
 
 When resuming via `rig-task finish` (rather than a one-shot run), first
-**re-establish context**: resolve the open PR and its worktree from the target
-arg / current branch / the single open PR for this unit, and `cd` into that
-worktree before continuing.
+**re-establish context from the run state** — `<STATE> show <run-id>` (or
+`<STATE> list --skill rig-task` if you're not sure of the id). It carries the
+spec, the branch, the worktree, the PR, and what the self-review deferred, so a
+compacted or brand-new session picks up where `start` left off. `cd` into
+`worktree` and continue.
+
+**If there's no state** — the run predates it, or `start` ran without the
+script — fall back to the old path. Resolve the open PR and its worktree from
+the target arg, the current branch, or the single open PR for this unit, then
+`cd` into that worktree.
 
 ## Step 6 — Review-bot loop: watch (default) or drive (`--local`)
 
@@ -300,6 +357,8 @@ worktree before continuing.
   - `actionable` — still has feedback after the last round; left for a human.
   - `timeout` — bot didn't respond in time; left for a human.
 
+**Patch:** `{"phase":"review-loop","review":{"source":"bot","round":<n>,"outcome":"clean|actionable|timeout"},"nextAction":"hand back"}`.
+
 Only `clean` is merge-green; everything else stops for a human.
 
 ## Step 7 — Hand back
@@ -315,6 +374,12 @@ by hand-back (e.g. `--auto-merge` landed it), ensure the item is **Done**
 it). If the PR is still open, leave it **In Review** — the merge event (a later
 `finish` run, `/rig-epic`'s merge gate, or a live integration) moves it to Done.
 Never clobber a further-along state.
+
+**Close the run.** Patch `{"phase":"done","nextAction":null}` once the PR is
+open and the review reached a terminal state (`done` is guarded on a
+`pr.number`). Keep the state file — `/rig-doctor` reports stale runs, and the
+journal (`<STATE> journal <run-id>`) is how a human reconstructs a run that went
+wrong. Delete it with `<STATE> rm <run-id>` when the PR merges.
 
 If invoked by `/rig-sprint`, **return the outcome string** so the caller can decide
 whether to merge, and skip any local-QA offer (the caller makes it once).

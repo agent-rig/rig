@@ -14,7 +14,7 @@ read at runtime from a small **project profile** you fill in during onboarding.
 | **Agents** (`agents/`) | `rig-debugger`, `rig-reviewer`, `rig-architect`, `rig-qa`, `rig-coder` | Copied into `<project>/.claude/agents/` |
 | **pi adapter** (`pi/`) | Per-target persona frontmatter (`pi/agents/*.yml`, assembled onto the shared bodies) + the `/rig` dispatcher prompt | Copied into `<project>/.pi/{agents,prompts}/` — see [`docs/pi.md`](docs/pi.md) |
 | **Support docs** (`templates/`) | starter `REVIEWER.md` (+ `REVIEWER.scope-template.md`), `STYLE.md`, `label-mapping.md` | Copied into `<project>/.claude/` (only if absent) |
-| **Scripts** (`scripts/`) | `setup-worktree.sh`, `remove-worktree.sh`, `mint-gh-app-token.sh`, `scope-reviewer.ts`, `set-session-name.sh` (Claude-only) | Copied into `<project>/.claude/scripts/` |
+| **Scripts** (`scripts/`) | `setup-worktree.sh`, `remove-worktree.sh`, `mint-gh-app-token.sh`, `scope-reviewer.ts`, `rig-state.ts`, `set-session-name.sh` (Claude-only) | Copied into `<project>/.claude/scripts/` |
 | **CI templates** (`ci/`) | `security-scan`, `label-pr`, `image-build`, `slack-notify`, `test-gate`, `test-e2e`, and the **AI review-bot bundle** (`review-bot-gate`, `auto-review-fix`, `pr-review-labels`) | Copied into `<project>/.github/workflows/` (see `ci/README.md`) |
 | **Onboarding** (`skills/rig-onboard/`) | The agent-driven installer skill | Run once against a target project |
 
@@ -89,6 +89,15 @@ reference (the origin project's own values).
   colocated with the code, mirroring nested `AGENTS.md`). `rig-review` resolves
   the scoped files a diff touches and asserts them as P1s, so a subsystem's
   hard-won invariants stop getting re-discovered in PR review.
+- **Long runs keep state on disk, not in the transcript.** `/rig-task` spans
+  seven steps and four delegated agents. `/rig-epic run` loops that over every
+  child. When the transcript compacts mid-run, the acceptance criteria, the
+  failing assertion, and which review findings are already fixed go with it. So
+  every long skill keeps one small structured document per run under
+  `.rig/state/`, and `scripts/rig-state.ts` validates each update outside the
+  model. It rejects unknown keys, wrong types, and impossible states. A size
+  budget stops the document drifting back into a transcript. See
+  [`docs/state.md`](docs/state.md).
 - **Agent output is written for humans.** Agents produce a lot of prose — PR
   bodies, ticket descriptions, review findings, plans, hand-backs — and left
   alone they write it badly: buried conclusions, passive voice, hedge stacks,

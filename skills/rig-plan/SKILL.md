@@ -77,7 +77,9 @@ chunks), and `/rig-issue` (singletons). Hands execution to `/rig-epic start` /
    - **epic** → create the parent + children following `/rig-epic plan`'s
      creation steps (parent gets `shapeLabels.epic`; children carry their
      `blockedBy`), but **stop before `start`** — do not cut an integration
-     branch. Record it in `.rig/epics/<slug>.json` as planned-not-started.
+     branch. Open its run state as planned-not-started:
+     `bun <SCRIPTS>/rig-state.ts init rig-epic <slug> --json '{"parent":{…},"children":[…],"nextAction":"awaiting /rig-epic start"}'`
+     (see [`docs/state.md`](../../docs/state.md)).
    - **sprint** → create the independent items following `/rig-sprint plan` (each
      gets `shapeLabels.sprint`).
    - **ticket** → `/rig-issue create`.
