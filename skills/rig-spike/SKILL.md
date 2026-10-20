@@ -30,7 +30,7 @@ Reads `.rig/config.json`:
 - `tracker.team` / `tracker.project` — where a Linear tracking ticket is
   filed, when the provider is `linear`.
 - `agents.architect` — the project's name for the canonical `architect`
-  role (default: `architect`). `Explore` and `Plan` are Claude Code
+  role (default: `rig-architect`). `Explore` and `Plan` are Claude Code
   built-ins and are used as-is.
 - `style.guideFile` — the writing style for the findings writeup
   (default: `.claude/STYLE.md`).

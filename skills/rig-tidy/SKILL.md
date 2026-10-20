@@ -19,7 +19,7 @@ Reads `.rig/config.json`:
   given (default: `src`).
 - `test.command` — the suite run in the verify step (default: `npm test`).
 - `agents.reviewer` — the project's name for the canonical `reviewer`
-  role (default: `reviewer`).
+  role (default: `rig-reviewer`).
 
 If the file is absent, use the defaults above and note you're running
 unconfigured.
@@ -61,11 +61,12 @@ The user invoked this with: $ARGUMENTS
    > naming drift, mixed patterns introduced during the window.
    >
    > For each finding give file:line, the category, one-line
-   > justification, and the proposed deletion or merge. Skip anything
-   > you're not confident about. If the window is clean, say so."
+   > justification, the proposed deletion or merge, and a confidence
+   > (high/medium/low). Include findings you're unsure of — only the
+   > high-confidence ones get applied. If the window is clean, say so."
 
-4. **Apply the high-confidence findings.** For each item the reviewer
-   flagged with concrete file:line + proposed edit, apply the Edit.
+4. **Apply the high-confidence findings.** For each `high` item with a
+   concrete file:line + proposed edit, apply the Edit.
    Skip anything ambiguous and surface it to the user instead.
 
 5. **Verify.** Run the test command from `.rig/config.json`

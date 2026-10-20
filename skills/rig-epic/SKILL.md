@@ -89,7 +89,7 @@ inference (when `<PARENT>` is omitted): on `github`, the open issue labelled
 `shapeLabels.epic` that has sub-issues; else if exactly one `rig-epic` run
 exists (`<STATE> list --skill rig-epic`), use it; if zero or many, ask.
 
-**Intent banner:** every invocation MUST print one line first — mode, what
+**Intent banner:** every invocation prints one line first — mode, what
 branch PRs target, what it won't do:
 
 ```
@@ -271,8 +271,8 @@ architect + QA specs and either **proceeds** with synthesized per-child directio
 (handed verbatim to each child's coder), or **halts** with a blocked report naming
 what a human must decide. No human waits, so the epic runs hands-off to child PRs;
 a genuine blocker still stops it rather than fanning out on a bad spec. (The paired
-Smithers durable workflow implements this with a cheap model — the "Fable
-advisor" — so kicked-off epics never park at the gate.)
+Smithers durable workflow implements this as the "Fable advisor" pass, so
+kicked-off epics never park at the gate.)
 
 Then loop `next` until no unblocked child remains:
 ```

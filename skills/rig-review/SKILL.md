@@ -117,8 +117,10 @@ summary, and its status.
    > doesn't exist, walk the generic categories: correctness,
    > security/trust-boundary, error-handling, concurrency, API/contract, tests,
    > style — and say so.) Worktree path: {worktree-path}. Be specific — file and
-   > line refs. Tag each finding with its pattern number and severity
-   > (P0/P1/P2/P3). If clean against every pattern, say so explicitly.
+   > line refs. Tag each finding with its pattern number, severity
+   > (P0/P1/P2/P3), and confidence (high/medium/low). Report every issue you
+   > find, including uncertain ones — this skill triages. If clean against
+   > every pattern, say so explicitly.
    >
    > This diff touches scopes with recorded invariants — assert the diff against
    > **every** one; a violation is a **P1** tagged `scope-invariant`.
@@ -139,7 +141,7 @@ summary, and its status.
    > {base}...HEAD`{ticket-suffix}. Assume that verdict is wrong and find what it
    > missed. Read `{patternsFile}` and walk every pattern independently — don't
    > anchor on 'a reviewer already passed this.' Worktree path: {worktree-path}.
-   > File/line refs, tagged with pattern number and severity. Also assert the
+   > File/line refs, tagged with pattern number, severity, and confidence. Also assert the
    > diff against the recorded scope invariants below independently; a violation
    > is a **P1** tagged `scope-invariant`. Invariants:\n{scope-invariants} If you
    > also find it clean, say so; don't invent findings to justify a second
@@ -151,7 +153,7 @@ summary, and its status.
 5. **Classify and report** (this verb finds, it does not edit):
    - `clean — 0 findings vs {base} (2 passes)`
    - `findings — N P0/P1, M P2/P3` — each with file:line, pattern number,
-     severity, and `[pass 1]`/`[pass 2]`.
+     severity, confidence, and `[pass 1]`/`[pass 2]`.
 
    Each finding is one entry in one order — severity, location, the defect, the
    consequence, the fix — per `style.guideFile` (default `.claude/STYLE.md`):

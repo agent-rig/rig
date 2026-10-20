@@ -2,6 +2,7 @@
 name: rig-qa
 description: Test writing agent. Use to write or extend unit tests for new or changed code. Give it the file or function to test and it will produce the test cases.
 model: sonnet
+effort: medium
 tools: Read, Write, Edit, Bash, Grep, Glob, TodoWrite, LSP
 ---
 

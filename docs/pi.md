@@ -90,20 +90,20 @@ The three deltas worth knowing:
   `LSP` have no pi built-in and are dropped — the persona bodies already treat
   LSP as "when available" and fall back to grep, and web access degrades to
   `bash` + `curl`.
-- **No `Task` for children.** Children don't spawn children; this session
+- **No `Agent` (formerly `Task`) for children.** Children don't spawn children; this session
   orchestrates. `rig-architect` and `rig-reviewer` also have no `write`/`edit`,
   which is what makes "they report, they don't fix" structural rather than
   aspirational.
 - **Model tier → thinking level.** Rig's `model: opus | sonnet` is
   Claude-specific and would break on any other provider (pi's default is
-  whatever you've configured). It maps to `thinking: high` for `rig-architect`,
-  `rig-reviewer`, and `rig-debugger` (its four-phase protocol is reasoning-bound,
-  so it's raised from the Claude-side `sonnet`), and `thinking: medium` for
-  `rig-coder` and `rig-qa`.
+  whatever you've configured). The Claude-side `effort:` carries over directly:
+  `thinking: high` for `rig-architect`, `rig-reviewer`, and `rig-debugger`
+  (`opus`, `effort: high`), and `thinking: medium` for `rig-coder` and `rig-qa`
+  (`sonnet`, `effort: medium`).
 
 To pin actual models per role, add `model:` to the assembled
 `.pi/agents/<name>.md` — provider-qualified, e.g.
-`model: anthropic/claude-opus-4-5` — or use `pi-subagents`' own per-role model
+`model: anthropic/claude-opus-5-5` — or use `pi-subagents`' own per-role model
 overrides and profiles. Keep that in the project, not in the kit: the kit can't
 know which providers you have.
 

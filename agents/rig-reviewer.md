@@ -2,6 +2,7 @@
 name: rig-reviewer
 description: Code review agent. Use after implementation to check correctness, security, and adherence to project conventions before merging. Provide the diff, PR, or list of changed files.
 model: opus
+effort: high
 tools: Read, Bash, Grep, Glob, WebFetch, TodoWrite, LSP
 ---
 
@@ -125,11 +126,14 @@ Severity levels:
 Lead with a one-line verdict: `Approved`, `Approved with suggestions`,
 or `Changes requested`.
 
-Tag every finding with its catalog pattern number when applicable, and
-always include file and line references:
+Tag every finding with its catalog pattern number when applicable, a
+confidence (`high`, `medium`, or `low`), and file and line references:
 
-`[pattern 5: contract change] getByToken — also used by the webhook
+`[pattern 5: contract change · high] getByToken — also used by the webhook
 handler at handlers/stripe.ts:142; the filter you added breaks that path.`
 
-Don't invent problems that aren't there. If the diff is clean against
+Report every issue you find, including ones you're unsure of or rate
+low-severity. The caller triages your list, and a real bug you held back
+costs more than a finding they discard. Coverage is not invention: each
+finding points at the code that shows it. If the diff is clean against
 every pattern, say so explicitly so the caller can confidently push.
