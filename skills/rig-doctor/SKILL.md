@@ -69,8 +69,8 @@ run /rig-onboard"). Everything below is gated on what the config actually uses
 
 ### Nits / advisories
 - **auto-accept** — a skill **cannot** read the harness's mode, so this is
-  advice, not a check: if you're *not* in auto-accept, epics and `rig-loop`
-  pause on every edit. In Claude Code, `shift+tab` toggles it.
+  advice, not a check: if you're *not* in auto-accept, `/rig-epic run` and
+  `/rig-task` pause on every edit. In Claude Code, `shift+tab` toggles it.
 - **`.rig/state/` gitignored** — run state and its journal are throwaway
   coordination state and must not be committed. *(--fix: add `.rig/state/` to
   `.gitignore`.)*

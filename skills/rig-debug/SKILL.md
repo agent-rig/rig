@@ -2,7 +2,7 @@
 name: rig-debug
 description: "Systematic root-cause debugging for a failing test, production bug, flaky behavior, or unexplained error. Spawns the debugger agent through Phase 1 → 4 (root-cause → pattern analysis → hypothesis → minimal fix). Refuses to propose fixes before evidence is gathered. Triggers on: 'debug', 'why is X failing', 'root cause', 'this isn't working'."
 argument-hint: "<one-line description of the bug or error message>"
-allowed-tools: [Bash, Read, Grep, Glob]
+allowed-tools: [Bash, Read, Grep, Glob, Agent]
 ---
 
 # Debug
@@ -17,9 +17,9 @@ Reads `.rig/config.json`:
 - `test.command` — how to run the test suite when collecting Phase 1
   evidence (default: `npm test`).
 - `agents.debugger` — the project's name for the canonical `debugger`
-  role (default: `debugger`).
+  role (default: `rig-debugger`).
 - `agents.architect` — the project's name for the canonical `architect`
-  role, used only when escalating (default: `architect`).
+  role, used only when escalating (default: `rig-architect`).
 - `style.guideFile` — the writing style for the report you hand back
   (default: `.claude/STYLE.md`).
 
@@ -35,9 +35,9 @@ let it skip ahead. Each phase has a deliverable that gates the next:
   the failing code path, capture the exact error/stack/trace, `git diff`
   the suspect window. Deliverable: a stated root cause backed by
   observed evidence — not a guess.
-- **Phase 2 — Pattern analysis.** Ask whether this is an instance of a
-  class. Does the same bug shape exist elsewhere in the tree? Deliverable:
-  the blast radius (this one site, or N sites).
+- **Phase 2 — Pattern analysis.** Find a similar code path that works and
+  list every difference between it and the failing one. Deliverable: the
+  list of differences.
 - **Phase 3 — Hypothesis.** State the specific change that should fix the
   root cause and why, plus how you'll confirm it. Deliverable: one
   falsifiable hypothesis.
@@ -75,9 +75,9 @@ sentence. Don't start the loop on a vague brief.
      the data added.
    - `Phase 4 complete — root cause, fix, test` → done. Report to
      user with the agent's output. The fix is already in the worktree.
-   - `Three fixes failed — architectural concern` → STOP. Surface the
-     agent's architectural-concern note to the user. Do not spawn the
-     debugger again with "try one more thing." Suggest re-scoping or
+   - `Three fixes failed — architectural concern` → stop here and surface
+     the agent's architectural-concern note to the user. Another debugger
+     run with "try one more thing" repeats the pattern. Suggest re-scoping or
      pulling in the `architect` agent (mapped through `agents.architect`)
      for a design review.
 

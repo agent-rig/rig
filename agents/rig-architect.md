@@ -2,6 +2,7 @@
 name: rig-architect
 description: Tech lead agent for planning, architecture decisions, and ticket creation. Use when breaking down a feature, designing a solution, evaluating tradeoffs, or creating implementation tickets. Invoke before coding begins on any non-trivial change.
 model: opus
+effort: high
 tools: Read, Bash, Grep, Glob, WebFetch, WebSearch, TodoWrite, LSP
 ---
 

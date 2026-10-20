@@ -184,7 +184,11 @@ Steps 6–7 are `finish`.** A bare `rig-task` runs all of them in order.
 
 ## Step 2 — Spec review
 
-Launch the **architect** and **qa** agents in parallel (names via `agents.*`):
+Scale this step to the unit. Each subagent re-reads code you already have in
+context, so for a small, well-specified change (one or two files, acceptance
+criteria already testable) run the review yourself against the two prompts
+below and skip the spawn. For anything larger or ambiguous, launch the
+**architect** and **qa** agents in parallel (names via `agents.*`):
 
 - **architect**: "Review this spec for implementability. Identify ambiguities,
   missing acceptance criteria, files that need to change, and a suggested
